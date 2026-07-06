@@ -1,19 +1,23 @@
-import Navbar from "./components/navbar"
-import { useTheme } from "./context/themeContext"
-import {Routes,Route } from "react-router-dom"
-import { useLocation } from "react-router-dom"
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { finishAuthCheck, login, logout } from "./redux/slices/authSlice";
+import API, { setAuthTokenInMemory } from "./api/axiosAPI";
+
+import Navbar from "./components/navbar";
+import { useTheme } from "./context/themeContext";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { Tooltip } from "react-tooltip";
 
 import "react-tooltip/dist/react-tooltip.css";
 
-import Home from "./pages/home"
-import Profile from "./pages/profile"
-import Courses from "./pages/courses"
-import Login from "./pages/login"
-import DashBoard from "./pages/dashBoard"
-import Favorites from "./pages/favorites"
-import CourseDetails from "./pages/courseDetails"
-import AuthSync from "./components/authSync"
+import Home from "./pages/home";
+import Profile from "./pages/profile";
+import Courses from "./pages/courses";
+import Login from "./pages/login";
+import DashBoard from "./pages/dashBoard";
+import Favorites from "./pages/favorites";
+import CourseDetails from "./pages/courseDetails";
+import AuthSync from "./components/authSync";
 import ProtectedRoute from "./components/protectedRoute";
 import AddCourse from "./pages/adminPages/addCourses";
 import AddModule from "./pages/adminPages/addModules";
@@ -22,27 +26,76 @@ import VideoPlaybackPage from "./pages/videoPlayback";
 import QuizPage from "./pages/quiz";
 
 function App() {
-  const { darkMode } = useTheme()
+  const { darkMode } = useTheme();
   const location = useLocation();
+  const dispatch = useDispatch();
+
+
+  const { isCheckingAuth } = useSelector((state: any) => state.auth);
+
+
+  useEffect(() => {
+    const verifySessionOnBoot = async () => {
+      try {
+        const res = await API.post("/auth/refresh", {}, { withCredentials: true });
+        
+
+        const { accessToken, user } = res.data;
+        
+        setAuthTokenInMemory(accessToken);
+        
+        if (user && user.name) {
+          dispatch(login(user)); // 🚨 This keeps "Sheikh" locked into your state on refresh!
+        }
+      } catch (err) {
+        console.error("Session refresh failed on boot:", err);
+      } finally {
+        dispatch(finishAuthCheck());
+      }
+    };
+
+    verifySessionOnBoot();
+  }, [dispatch]);
+
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400 font-medium tracking-wide">Securing session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={darkMode ? "dark" : ""}>
-          <AuthSync />   
-      <div className={`min-h-screen bg-[white]  text-black dark:bg-gray-900 dark:text-white transition-colors duration-300`}>
-       {location.pathname != "/login" && <Navbar />}
+    <div className={darkMode ? "dark" : ""}>  
+      <div className={`min-h-screen bg-[white] text-black dark:bg-gray-900 dark:text-white transition-colors duration-300`}>
+        {location.pathname !== "/login" && <Navbar />}
+        
         <Routes>
+          {/* Public Views */}
           <Route path="/" element={<Home/>}/>
-          {/* <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/> */}
+          <Route path="/login" element={<Login/>}/>
+          
+          {/* Protected Route Gates */}
           <Route path="/courses" element={<ProtectedRoute><Courses/></ProtectedRoute>}/>
+          <Route path="/favorites" element={<ProtectedRoute><Favorites/></ProtectedRoute>}/>
+          
+          {/* 💡 Secured Content & Syllabus Workspace Flows */}
+          <Route path="/courses/:courseId" element={<ProtectedRoute><CourseModulesPage/></ProtectedRoute>}/>
+          <Route path="/courses/:courseId/module/:moduleId/video/:videoId" element={<ProtectedRoute><VideoPlaybackPage /></ProtectedRoute>} /> 
+          <Route path="/courses/:courseId/module/:moduleId/video/:videoId/quiz" element={<ProtectedRoute><QuizPage/></ProtectedRoute>} />
+          
+          {/* Admin Management Catalogs */}
+          <Route path="/add-course" element={<ProtectedRoute><AddCourse/></ProtectedRoute>}/>
+          <Route path="/add-module" element={<ProtectedRoute><AddModule/></ProtectedRoute>}/>
+          
+          {/* Commented out templates */}
+          {/* <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/> */}
           {/* <Route path="/courses/:videoId" element={<ProtectedRoute><CourseDetails/></ProtectedRoute>}/> */}
           {/* <Route path="/dashboard" element={<ProtectedRoute><DashBoard/></ProtectedRoute>}/> */}
-          <Route path="/login" element={<Login/>}/>
-          <Route path="/favorites" element={<ProtectedRoute><Favorites/></ProtectedRoute>}/>
-          <Route path ="/add-course" element={<AddCourse/>}/>
-          <Route path ="/add-module" element={<AddModule/>}/>
-          <Route path ="/courses/:courseId" element={<CourseModulesPage/>}/>
-          <Route path="/courses/:courseId/module/:moduleId/video/:videoId" element={<VideoPlaybackPage />} /> 
-          <Route path="/courses/:courseId/module/:moduleId/video/:videoId/quiz" element={<QuizPage/>} />
         </Routes> 
                
         <Tooltip id="favorite-tip" />
@@ -52,7 +105,7 @@ function App() {
         <Tooltip id="login-tip" />
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

@@ -1,37 +1,31 @@
-import { createSlice,  } from "@reduxjs/toolkit";
-import type { PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 interface ProgressState {
-  // Array of strings formatted as: "courseId-moduleId-videoIndex"
-  completedLectures: string[],
-  completedQuizzes: string[],
+  completedLectures: string[];
 }
 
 const initialState: ProgressState = {
-  completedLectures: [],
-  completedQuizzes: [],
+
+  completedLectures: JSON.parse(localStorage.getItem("lms_completed_lectures") || "[]"),
 };
 
-
-const userProgressSlice = createSlice({
-  name: "userProgress",
+const progressSlice = createSlice({
+  name: "progress",
   initialState,
   reducers: {
     unlockNextLesson: (state, action: PayloadAction<string>) => {
-      if (!state.completedLectures.includes(action.payload)) {
-        state.completedLectures.push(action.payload);
-      }
-    },
-    unlockQuiz: (state, action: PayloadAction<string>) => {
-      if (!state.completedQuizzes.includes(action.payload)) {
-        state.completedQuizzes.push(action.payload);
+      const lectureKey = action.payload;
+      if (!state.completedLectures.includes(lectureKey)) {
+        state.completedLectures.push(lectureKey);
+        localStorage.setItem("lms_completed_lectures", JSON.stringify(state.completedLectures));
       }
     },
     resetProgress: (state) => {
       state.completedLectures = [];
-    }
+      localStorage.removeItem("lms_completed_lectures");
+    },
   },
 });
 
-export const { unlockNextLesson,unlockQuiz,resetProgress } = userProgressSlice.actions;
-export default userProgressSlice.reducer;
+export const { unlockNextLesson, resetProgress } = progressSlice.actions;
+export default progressSlice.reducer;

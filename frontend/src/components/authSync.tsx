@@ -4,7 +4,7 @@ import { useDispatch } from "react-redux";
 
 import { login, logout } from "../redux/slices/authSlice";
 import { hydrateFavorites, resetFavorites } from "../redux/slices/favoritesSlice";
-// import { hydrateProgress, resetProgress } from "../redux/slices/progressSlice";
+
 
 function AuthSync() {
   const { user, isAuthenticated, isLoading } = useAuth0();
@@ -26,13 +26,13 @@ function AuthSync() {
       );
 
       dispatch(hydrateFavorites(userId));
-      // dispatch(hydrateProgress(userId));
+
     }
 
     if (!isAuthenticated && !user) {
       dispatch(logout());
       dispatch(resetFavorites());
-      // dispatch(resetProgress());
+
     }
   }, [isAuthenticated, user, isLoading, dispatch]);
 

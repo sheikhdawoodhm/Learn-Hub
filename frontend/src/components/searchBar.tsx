@@ -1,6 +1,6 @@
 type SearchBarProps = {
   searchTerm: string;
-  setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
+  setSearchTerm: (searchTerm: string) => void;
 };
 
 function SearchBar({

@@ -1,18 +1,15 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 
-// ================= YOUTUBE EMBED HELPER =================
-// Keeps standard watch links from crashing or being blocked by X-Frame-Options
+
 const getEmbedUrl = (url: string) => {
   if (!url) return "";
   
-  // Handle standard watch links: youtube.com/watch?v=ID
   if (url.includes("youtube.com/watch?v=")) {
     const videoId = url.split("v=")[1]?.split("&")[0];
     return `https://www.youtube.com/embed/${videoId}`;
   }
   
-  // Handle short share links: youtu.be/ID
   if (url.includes("youtu.be/")) {
     const videoId = url.split("youtu.be/")[1]?.split("?")[0];
     return `https://www.youtube.com/embed/${videoId}`;
@@ -25,44 +22,57 @@ const VideoPlaybackPage = () => {
   const { courseId, moduleId, videoId } = useParams<{ courseId: string; moduleId: string; videoId: string }>();
   const navigate = useNavigate();
 
-  // 1. Fetch Course Data from Redux
+
   const course = useSelector((state: any) =>
-    state.courses?.courses?.find((c: any) => c.id === courseId)
+    state.courses?.courses?.find((c: any) => String(c.id) === String(courseId))
   );
 
-  // 2. Fetch User Progress (safeguarded against undefined state tree keys)
+
   const completedLectures = useSelector((state: any) => state.userProgress?.completedLectures || []);
 
-  if (!course) return <div className="p-6 text-center text-slate-500">Course not found</div>;
+  if (!course) return <div className="p-6 text-center text-slate-500">Course info not found inside memory store.</div>;
 
-  const currentModuleIdx = course.modules.findIndex((m: any) => m.id === moduleId);
-  const currentModule = course.modules[currentModuleIdx];
+
+  const currentModuleIdx = course.modules?.findIndex((m: any) => String(m.id) === String(moduleId));
+  const currentModule = course.modules?.[currentModuleIdx];
   
-  // Look up video by matching its unique ID string directly
-  const currentVideoIdx = currentModule?.videos?.findIndex((v: any) => v.id === videoId);
+  const currentVideoIdx = currentModule?.videos?.findIndex((v: any) => String(v.id) === String(videoId));
   const currentVideo = currentModule?.videos?.[currentVideoIdx];
 
-  if (!currentVideo) return <div className="p-6 text-center text-slate-500">Video not found</div>;
 
-  // 3. PROGRESS LOCK GATE LOGIC
+  if (!currentVideo) {
+    return (
+      <div className="p-12 text-center text-slate-500 max-w-md mx-auto space-y-4">
+        <p className="font-semibold text-rose-500">Video Content Disconnected</p>
+        <p className="text-sm text-slate-400">
+          Target track identifier <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-xs font-mono">{videoId}</code> could not be successfully loaded.
+        </p>
+        <button 
+          onClick={() => navigate(`/courses/${courseId}`)} 
+          className="text-sm text-indigo-600 font-bold hover:underline cursor-pointer block mx-auto"
+        >
+          ← Return to Syllabus Dashboard
+        </button>
+      </div>
+    );
+  }
+
+
   const trackingKey = `${courseId}-${moduleId}-${videoId}`;
   const isLecturePassed = completedLectures.includes(trackingKey);
   const hasQuiz = currentVideo?.questions && currentVideo.questions.length > 0;
   
-  // The student can watch the video instantly, but can ONLY press "Next" if there's no quiz OR if they passed it
   const isNextLessonUnlocked = !hasQuiz || isLecturePassed;
 
-  // 4. SEQUENTIAL NAVIGATION PATH CALCULATIONS
-  const hasNextVideoInModule = currentVideoIdx + 1 < currentModule?.videos.length;
-  const hasNextModule = currentModuleIdx + 1 < course.modules.length;
+
+  const hasNextVideoInModule = currentVideoIdx + 1 < (currentModule?.videos?.length || 0);
+  const hasNextModule = currentModuleIdx + 1 < (course.modules?.length || 0);
 
   const handleNext = () => {
     if (hasNextVideoInModule) {
-      // Advance to next video item inside this identical module shell
       const nextVideo = currentModule.videos[currentVideoIdx + 1];
       navigate(`/courses/${courseId}/module/${moduleId}/video/${nextVideo.id}`);
     } else if (hasNextModule) {
-      // Step over module boundary to load video 1 of the next module section
       const nextModule = course.modules[currentModuleIdx + 1];
       const firstVideo = nextModule.videos?.[0];
       if (firstVideo) {

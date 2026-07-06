@@ -1,7 +1,7 @@
 import {useLocation,useParams,} from "react-router-dom";
 import YouTube from "react-youtube";
 import { useDispatch } from "react-redux";
-// import { userProgressSlice } from "../redux/slices/progressSlice";
+
 import { useAppSelector } from "../hooks/useAppSelector";
 import { useEffect, useRef } from "react";
 
@@ -55,7 +55,7 @@ function CourseDetails() {
     progress: percentage,
     currentTime,
   });
-      // dispatch(updateProgress({videoId,progress : percentage,currentTime}))
+      
     },5000)
   }
 
@@ -119,7 +119,7 @@ function CourseDetails() {
       )}
 
       <a
-        href={`https://www.youtube.com/watch?v=${videoId}`}
+        href={`https:`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-block mt-6 px-4 py-2 bg-red-600 text-white rounded-lg"
@@ -130,5 +130,6 @@ function CourseDetails() {
     </div>
   );
 }
+        
 
 export default CourseDetails;

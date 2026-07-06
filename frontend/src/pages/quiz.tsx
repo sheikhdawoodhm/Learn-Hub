@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { unlockNextLesson} from "../redux/slices/progressSlice";
+import { unlockNextLesson } from "../redux/slices/progressSlice";
 import { CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, RefreshCw, Award } from "lucide-react";
-// Import your completion action from your progress slice file
-// import { completeLecture } from "../redux/slices/progressSlice";
+import API from "../api/axiosAPI";
 
 const QuizPage = () => {
   const { courseId, moduleId, videoId } = useParams<{ courseId: string; moduleId: string; videoId: string }>();
@@ -17,22 +16,25 @@ const QuizPage = () => {
   const [score, setScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
 
-  // Pull the course data structure from Redux memory
   const course = useSelector((state: any) =>
-    state.courses?.courses?.find((c: any) => c.id === courseId)
+    state.courses?.courses?.find((c: any) => String(c.id) === String(courseId))
   );
 
-  const currentModule = course?.modules?.find((m: any) => m.id === moduleId);
-  const currentVideo = currentModule?.videos?.find((v: any) => v.id === videoId);
+  const currentModule = course?.modules?.find((m: any) => String(m.id) === String(moduleId));
+  const currentVideo = currentModule?.videos?.find((v: any) => String(v.id) === String(videoId));
   const questions = currentVideo?.questions || [];
 
   if (!course || !currentVideo || questions.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-6">
-        <AlertCircle className="w-12 h-12 text-slate-400 mb-3" />
-        <p className="text-slate-500 mb-4">No quiz content found for this lesson.</p>
-        <button onClick={() => navigate(-1)} className="text-indigo-600 font-bold flex items-center gap-1 cursor-pointer">
-          <ArrowLeft className="w-4 h-4" /> Go Back
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-950 p-6 text-center">
+        <AlertCircle className="w-12 h-12 text-rose-500 mb-3" />
+        <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200">Quiz Content Block Missed</h3>
+        <p className="text-slate-400 text-sm max-w-sm mt-1 mb-6">
+          The validation engine failed to cross-reference questionnaire tracks matching target reference id:
+          <code className="bg-slate-100 dark:bg-slate-800 text-xs px-1.5 py-0.5 rounded font-mono ml-1">{videoId}</code>
+        </p>
+        <button onClick={() => navigate(-1)} className="text-indigo-600 font-bold flex items-center gap-1 cursor-pointer hover:underline">
+          <ArrowLeft className="w-4 h-4" /> Return to Lesson Canvas
         </button>
       </div>
     );
@@ -40,27 +42,38 @@ const QuizPage = () => {
 
   const currentQuestion = questions[currentQuestionIdx];
 
-  const handleNext = () => {
-    // Score compilation check
+  const handleNext = async () => {
     const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
     const currentScore = isCorrect ? score + 1 : score;
     if (isCorrect) setScore(currentScore);
 
-    // Reset answer input states
     setSelectedAnswer("");
     setIsSubmitted(false);
 
     if (currentQuestionIdx + 1 < questions.length) {
       setCurrentQuestionIdx(currentQuestionIdx + 1);
     } else {
-      // Quiz has concluded completely
       setQuizFinished(true);
       const passed = currentScore === questions.length;
 
       if (passed) {
         const lectureKey = `${courseId}-${moduleId}-${videoId}`;
-        dispatch(unlockNextLesson(lectureKey)); // Unlock this when slice is wired up!
-        console.log("Success! Lecture tracking key registered:", lectureKey);
+
+
+        dispatch(unlockNextLesson(lectureKey));
+
+
+        try {
+          await API.post("/progress/sync", {
+            courseId,
+            moduleId,
+            videoId,
+            lectureKey,
+            completed: true
+          });
+        } catch (err) {
+          console.error("Database progress sync failed:", err);
+        }
       }
     }
   };
@@ -81,12 +94,11 @@ const QuizPage = () => {
             </p>
           </div>
 
-          <div className={`p-4 rounded-xl text-xs font-medium border ${
-            isPerfectScore 
+          <div className={`p-4 rounded-xl text-xs font-medium border ${isPerfectScore
               ? "bg-emerald-50/50 border-emerald-100 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-900 dark:text-emerald-400"
               : "bg-amber-50/50 border-amber-100 text-amber-700 dark:bg-amber-950/20 dark:border-amber-900 dark:text-amber-400"
-          }`}>
-            {isPerfectScore 
+            }`}>
+            {isPerfectScore
               ? "Perfect Score! This lecture is now officially marked completed and the next step is unlocked."
               : "You must answer 100% of the questions correctly to complete this lesson and clear the progress gate lock."
             }
@@ -120,20 +132,18 @@ const QuizPage = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        
-        {/* Progress bar tracking header lines */}
+
         <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
           <span>Question {currentQuestionIdx + 1} of {questions.length}</span>
           <span>Score: {score}</span>
         </div>
         <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-          <div 
+          <div
             className="bg-indigo-600 h-full transition-all duration-300"
             style={{ width: `${((currentQuestionIdx + 1) / questions.length) * 100}%` }}
           />
         </div>
 
-        {/* Main Card Content Container Frame */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
           <h2 className="text-lg font-bold tracking-tight leading-relaxed">
             {currentQuestion.question}
@@ -153,16 +163,14 @@ const QuizPage = () => {
                   type="button"
                   disabled={isSubmitted}
                   onClick={() => setSelectedAnswer(opt.letter)}
-                  className={`w-full text-left px-5 py-4 rounded-xl border font-medium text-sm transition-all flex items-center justify-between gap-4 cursor-pointer ${
-                    isSelected
+                  className={`w-full text-left px-5 py-4 rounded-xl border font-medium text-sm transition-all flex items-center justify-between gap-4 cursor-pointer ${isSelected
                       ? "bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-500 dark:text-indigo-400 font-bold"
                       : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60"
-                  }`}
+                    }`}
                 >
                   <span className="flex items-center gap-3">
-                    <span className={`w-6 h-6 text-xs font-bold rounded-md flex items-center justify-center border ${
-                      isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "bg-slate-50 dark:bg-slate-900 text-slate-400 border-slate-200 dark:border-slate-800"
-                    }`}>
+                    <span className={`w-6 h-6 text-xs font-bold rounded-md flex items-center justify-center border ${isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "bg-slate-50 dark:bg-slate-950 text-slate-400 border-slate-200 dark:border-slate-800"
+                      }`}>
                       {opt.letter}
                     </span>
                     {opt.value}
@@ -176,13 +184,12 @@ const QuizPage = () => {
             <button
               onClick={handleNext}
               disabled={!selectedAnswer}
-              className={`font-bold py-2.5 px-6 rounded-xl flex items-center gap-2 text-sm transition-all ${
-                !selectedAnswer
+              className={`font-bold py-2.5 px-6 rounded-xl flex items-center gap-2 text-sm transition-all ${!selectedAnswer
                   ? "bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed"
                   : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm cursor-pointer"
-              }`}
+                }`}
             >
-              {currentQuestionIdx + 1 === questions.length ? "Finish Quiz" : "Next Question"} 
+              {currentQuestionIdx + 1 === questions.length ? "Finish Quiz" : "Next Question"}
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

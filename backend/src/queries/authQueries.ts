@@ -1,4 +1,4 @@
-import pool from "../configure/db";
+import pool from "../dbSetup/db";
 
 
 export const findUserByEmail = async (email: string) => {

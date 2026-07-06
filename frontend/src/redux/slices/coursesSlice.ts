@@ -11,7 +11,7 @@ type Question = {
 };
 
 type Video = {
-  id: string; // Ensure this is present matching your updated schema
+  id: string;
   videoTitle: string;
   videoUrl: string;
   questions: Question[];
@@ -26,7 +26,7 @@ type Module = {
 type Course = {
   id: string;
   title: string;
-  difficulty: string;
+  category: string;
   description: string;
   thumbnail: string;
   modules: Module[];
@@ -36,10 +36,8 @@ type CourseState = {
   courses: Course[];
 };
 
-// ================= LOCALSTORAGE HELPERS =================
 const LOCAL_STORAGE_KEY = "lms_saved_courses";
 
-// Safely load initial data if it exists in the user's browser memory
 const loadInitialCourses = (): Course[] => {
   try {
     const serializedData = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -51,7 +49,6 @@ const loadInitialCourses = (): Course[] => {
   }
 };
 
-// Helper utility to update localStorage cleanly inside reducers
 const saveToLocalStorage = (courses: Course[]) => {
   try {
     const serializedData = JSON.stringify(courses);
@@ -62,100 +59,94 @@ const saveToLocalStorage = (courses: Course[]) => {
 };
 
 const initialState: CourseState = {
-  courses: loadInitialCourses(), // 👈 Automatically pull local data on app boot!
+  courses: loadInitialCourses(),
 };
 
 const coursesSlice = createSlice({
   name: "courses",
   initialState,
   reducers: {
-    setCourses(state, action: PayloadAction<Course[]>) {
-      state.courses = action.payload;
-      saveToLocalStorage(state.courses); // 💾 Save progress
-    },
+    setCourses(state, action: PayloadAction<any>) {
+      const incomingData = action.payload;
+      let rawCourses: Course[] = [];
 
+      if (Array.isArray(incomingData)) {
+        rawCourses = incomingData;
+      } else if (incomingData && typeof incomingData === "object" && Array.isArray((incomingData as any).courses)) {
+        rawCourses = (incomingData as any).courses;
+      }
+
+
+      state.courses = rawCourses.map((incomingCourse) => {
+        const existingCourse = state.courses.find((c) => String(c.id) === String(incomingCourse.id));
+        return {
+          ...incomingCourse,
+
+          modules: existingCourse?.modules && existingCourse.modules.length > 0 
+            ? existingCourse.modules 
+            : (incomingCourse.modules || [])
+        };
+      });
+
+      saveToLocalStorage(state.courses);
+    },
     addCourse(state, action: PayloadAction<Course>) {
       state.courses.push(action.payload);
-      saveToLocalStorage(state.courses); // 💾 Save progress
+      saveToLocalStorage(state.courses);
     },
-
-    updateCourseModules(
-      state,
-      action: PayloadAction<{
-        courseId: string;
-        modules: Module[];
-      }>
-    ) {
+    updateCourseModules(state, action: PayloadAction<{ courseId: string; modules: Module[] }>) {
       const { courseId, modules } = action.payload;
-      const course = state.courses.find((c) => c.id === courseId);
+      const course = state.courses.find((c) => String(c.id) === String(courseId));
 
       if (course) {
         course.modules = modules;
-        saveToLocalStorage(state.courses); // 💾 Save progress
+        saveToLocalStorage(state.courses);
       }
     },
-    
-    deleteCourse(state, action: PayloadAction<string>) {
-      state.courses = state.courses.filter(c => c.id !== action.payload);
-      saveToLocalStorage(state.courses); // 💾 Save progress
+    updateSyllabusForCourse(state, action: PayloadAction<{ courseId: string; modules: any[] }>) {
+      const { courseId, modules } = action.payload;
+      const targetCourse = state.courses.find((c) => String(c.id) === String(courseId));
+      if (targetCourse) {
+        targetCourse.modules = modules; 
+        saveToLocalStorage(state.courses); // 💡 Sync changes back to local storage
+      }
     },
-
-    addModule(
-      state,
-      action: PayloadAction<{
-        courseId: string;
-        module: Module;
-      }>
-    ) {
+    deleteCourse(state, action: PayloadAction<string>) {
+      state.courses = state.courses.filter(c => String(c.id) !== String(action.payload));
+      saveToLocalStorage(state.courses);
+    },
+    addModule(state, action: PayloadAction<{ courseId: string; module: Module }>) {
       const { courseId, module } = action.payload;
-      const course = state.courses.find((c) => c.id === courseId);
+      const course = state.courses.find((c) => String(c.id) === String(courseId));
 
       if (course) {
         course.modules.push(module);
-        saveToLocalStorage(state.courses); // 💾 Save progress
+        saveToLocalStorage(state.courses);
       }
     },
-
-    addVideo(
-      state,
-      action: PayloadAction<{
-        courseId: string;
-        moduleId: string;
-        video: Video;
-      }>
-    ) {
+    addVideo(state, action: PayloadAction<{ courseId: string; moduleId: string; video: Video }>) {
       const { courseId, moduleId, video } = action.payload;
-      const course = state.courses.find((c) => c.id === courseId);
-      
+      const course = state.courses.find((c) => String(c.id) === String(courseId));
+
       if (course) {
-        const module = course.modules.find((m) => m.id === moduleId);
+        const module = course.modules.find((m) => String(m.id) === String(moduleId));
         if (module) {
           module.videos.push(video);
-          saveToLocalStorage(state.courses); // 💾 Save progress
+          saveToLocalStorage(state.courses);
         }
       }
     },
-
-    addQuestion(
-      state,
-      action: PayloadAction<{
-        courseId: string;
-        moduleId: string;
-        videoId: string;
-        question: Question;
-      }>
-    ) {
+    addQuestion(state, action: PayloadAction<{ courseId: string; moduleId: string; videoId: string; question: Question }>) {
       const { courseId, moduleId, videoId, question } = action.payload;
-      const course = state.courses.find((c) => c.id === courseId);
-      
+      const course = state.courses.find((c) => String(c.id) === String(courseId));
+
       if (course) {
-        const module = course.modules.find((m) => m.id === moduleId);
+        const module = course.modules.find((m) => String(m.id) === String(moduleId));
         if (module) {
-          // Look up via video ID safely
-          const video = module.videos.find((v) => v.id === videoId || v.videoTitle === videoId);
+          const video = module.videos.find((v) => String(v.id) === String(videoId) || v.videoTitle === videoId);
           if (video) {
             video.questions.push(question);
-            saveToLocalStorage(state.courses); // 💾 Save progress
+            saveToLocalStorage(state.courses);
           }
         }
       }
@@ -163,14 +154,16 @@ const coursesSlice = createSlice({
   },
 });
 
+
 export const {
   setCourses,
   addCourse,
   updateCourseModules,
+  updateSyllabusForCourse,
   addModule,
   addVideo,
   addQuestion,
-  deleteCourse, // Added missing export from original slice reducers list
+  deleteCourse,
 } = coursesSlice.actions;
 
 export default coursesSlice.reducer;

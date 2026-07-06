@@ -1,68 +1,66 @@
-import { NavLink, Link } from "react-router-dom"
-import { useTheme } from "../context/themeContext"
-import { useAuth0 } from "@auth0/auth0-react"
+import { NavLink, Link } from "react-router-dom";
+import { useTheme } from "../context/themeContext";
 import { useState, useRef, useEffect } from "react";
-
+import { useSelector, useDispatch } from "react-redux";
+import { logout as reduxLogout } from "../redux/slices/authSlice";
+import { clearAuthTokenInMemory } from "../api/axiosAPI";
 
 function Navbar() {
-  const [open, setOpen] = useState(false)
-
-  const { darkMode, toggleTheme } = useTheme()
-  const { user, isAuthenticated, loginWithRedirect, logout } = useAuth0();
-  const [showProfileMenu,setShowProfileMenu] = useState(false);
-  const [imageError,setImageError] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const profileRef = useRef<HTMLDivElement | null>(null);
+
+  const { darkMode, toggleTheme } = useTheme();
+  
+  const dispatch = useDispatch();
+  const { isLoggedIn, user } = useSelector((state: any) => state.auth);
 
   const navLinks = [
     { name: "Home", path: "/" },
     { name: "Courses", path: "/Courses" },
     { name: "Favorites", path: "/favorites" },
-    // { name: "Profile", path: "/profile" },
-      // { name: "Dashboard", path: "/dashboard" },
-  ]
+  ];
+
+  const handleCustomLogout = () => {
+    clearAuthTokenInMemory();
+    dispatch(reduxLogout());
+    setShowProfileMenu(false);
+    setOpen(false);
+  };
 
   useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    if (
-      profileRef.current &&
-      !profileRef.current.contains(event.target as Node)
-    ) {
-      setShowProfileMenu(false);
-    }
-  };
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        profileRef.current &&
+        !profileRef.current.contains(event.target as Node)
+      ) {
+        setShowProfileMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
-  document.addEventListener("mousedown", handleClickOutside);
 
-  return () => {
-    document.removeEventListener("mousedown", handleClickOutside);
-  };
-}, []);
+  const getUserDisplayName = () => user?.name || user?.email || "User";
+  const getUserInitial = () => getUserDisplayName().charAt(0).toUpperCase();
 
   return (
     <header className="w-full sticky top-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm transition-colors duration-300">
-
       <div className="flex justify-between items-center px-4 md:px-10 py-4 max-w-7xl mx-auto">
-
+        
         <div className="flex items-center gap-8">
-
-          <Link
-            to="/"
-            className="flex items-center gap-3"
-          >
+          <Link to="/" className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center">
-              <span className="material-symbols-outlined text-white">
-                school
-              </span>
+              <span className="material-symbols-outlined text-white">school</span>
             </div>
-
-            <span className="text-2xl font-bold text-blue-600">
-              LearnHub
-            </span>
-
+            <span className="text-2xl font-bold text-blue-600">LearnHub</span>
           </Link>
 
           <nav className="hidden md:flex gap-6 items-center">
-
             {navLinks.map((link) => (
               <NavLink
                 key={link.path}
@@ -76,106 +74,89 @@ function Navbar() {
                 {link.name}
               </NavLink>
             ))}
-
           </nav>
-
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
-
           <button
             onClick={toggleTheme}
             className="p-2 hover:bg-blue-100 cursor-pointer dark:hover:bg-gray-800 rounded-full transition-all duration-200"
-            data-tooltip-id="theme-tip"
-            data-tooltip-content="Toggle Theme"          >
+          >
             <span className="material-symbols-outlined text-blue-600">
               {darkMode ? "light_mode" : "dark_mode"}
             </span>
           </button>
 
-        <button
-          className="p-2 hover:bg-blue-100 cursor-pointer dark:hover:bg-gray-800 rounded-full transition-all duration-200"
-          data-tooltip-id="notify-tip"
-          data-tooltip-content="Notifications"
-        >
-          <span className="material-symbols-outlined text-blue-600">
-            notifications
-          </span>
-        </button>
-          {
-            !isAuthenticated ? (
-              <Link
-                to="/login"
-                className="hidden md:block bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full transition-all duration-300"
-                data-tooltip-id="login-tip"
-                data-tooltip-content="Login"
-              >
-                Login
-              </Link>
-            ) : (
-              <div ref = {profileRef}className="relative group hidden md:flex items-center gap-3">
+          <button className="p-2 hover:bg-blue-100 cursor-pointer dark:hover:bg-gray-800 rounded-full transition-all duration-200">
+            <span className="material-symbols-outlined text-blue-600">notifications</span>
+          </button>
 
-                <span className="font-medium text-sm">
-                  Hey, {user?.given_name || user?.name?.split(" ")[0]} 👋
-                </span>
+          {!isLoggedIn ? (
+            <Link
+              to="/login"
+              className="hidden md:block bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full transition-all duration-300 text-center"
+            >
+              Login
+            </Link>
+          ) : (
+            <div ref={profileRef} className="relative hidden md:flex items-center gap-3">
+              {/* 💡 FIX: Renders the full string value directly instead of splitting */}
+              <span className="font-medium text-sm text-gray-700 dark:text-gray-300">
+                Hey, {getUserDisplayName()} 👋
+              </span>
 
-                {user?.picture && !imageError ? (
-                  <img
-                    src={user.picture}
-                    alt={user.name?.charAt(0)}
-                    onError={() => setImageError(true)}
-                    onClick={() => setShowProfileMenu(!showProfileMenu)}
-                    className="w-10 h-10 rounded-full border-2 border-blue-500 cursor-pointer"
-                    data-tooltip-id="login-tip"
-                    data-tooltip-content="Login"
-                  />
-                ) : (
-                  <div  onClick={() => setShowProfileMenu(!showProfileMenu)} className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold cursor-pointer">
-                    {user?.name?.charAt(0).toUpperCase()}
-                  </div>
-                )}
+              {user?.picture && !imageError ? (
+                <img
+                  src={user.picture}
+                  alt={getUserInitial()}
+                  onError={() => setImageError(true)}
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="w-10 h-10 rounded-full border-2 border-blue-500 cursor-pointer object-cover"
+                />
+              ) : (
+                /* 💡 Initial Icon Badge Layout */
+                <div
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center font-bold text-base cursor-pointer select-none shadow-sm transition-colors duration-150"
+                >
+                  {getUserInitial()}
+                </div>
+              )}
 
-                {showProfileMenu && (<div className="flex flex-col bg-white dark:bg-gray-800 absolute right-0 top-12 w-50px rounded-xl shadow-lg border  transition-all duration-200">
-
-                  <div className="p-4 border-b">
-                    <p className="font-semibold">{user?.name}</p>
-                    <p className="text-sm">{user?.email}</p>
+              {/* Dropdown Layout Anchor */}
+              {showProfileMenu && (
+                <div className="flex flex-col bg-white dark:bg-gray-800 absolute right-0 top-12 w-64 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 transition-all duration-200 z-50 animate-fadeIn">
+                  <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                    <p className="font-semibold text-gray-900 dark:text-white truncate">
+                      {user?.name || "User Profile"}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                      {user?.email || "No Email Bound"}
+                    </p>
                   </div>
 
                   <button
-                    onClick={() =>
-                      logout({
-                        logoutParams: {
-                          returnTo: window.location.origin,
-                        },
-                      })
-                    }
-                    className="w-full text-left px-4 py-3 hover:bg-blue-300"
+                    onClick={handleCustomLogout}
+                    className="w-full text-left px-4 py-3 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 rounded-b-xl font-medium transition-colors cursor-pointer"
                   >
                     Logout
                   </button>
+                </div>
+              )}
+            </div>
+          )}
 
-                </div>)}
-              </div>
-            )
-          }
-
-          <button
-            className="md:hidden p-2"
-            onClick={() => setOpen(!open)}
-          >
+          <button className="md:hidden p-2" onClick={() => setOpen(!open)}>
             <span className="material-symbols-outlined text-blue-600">
               {open ? "close" : "menu"}
             </span>
           </button>
-
         </div>
-
       </div>
 
+      {/* --- MOBILE NAVIGATION --- */}
       {open && (
-        <div className="md:hidden px-6 pb-4 space-y-3 border-t bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700">
-
+        <div className="md:hidden px-6 pb-4 space-y-3 border-t bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 animate-slideDown">
           {navLinks.map((link) => (
             <NavLink
               key={link.path}
@@ -191,19 +172,32 @@ function Navbar() {
             </NavLink>
           ))}
 
-          <Link
-            to="/login"
-            onClick={() => setOpen(false)}
-            className="block text-center bg-blue-600 text-white py-2 rounded-full mt-4"
-          >
-            Login
-          </Link>
-
+          {!isLoggedIn ? (
+            <Link
+              to="/login"
+              onClick={() => setOpen(false)}
+              className="block text-center bg-blue-600 text-white py-2 rounded-full mt-4"
+            >
+              Login
+            </Link>
+          ) : (
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700 mt-4">
+              <div className="px-2 py-2 mb-3">
+                <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{user?.name}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user?.email}</p>
+              </div>
+              <button
+                onClick={handleCustomLogout}
+                className="w-full block text-center bg-red-500 hover:bg-red-600 text-white py-2 rounded-full font-medium transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          )}
         </div>
       )}
-
     </header>
-  )
+  );
 }
 
-export default Navbar
+export default Navbar;

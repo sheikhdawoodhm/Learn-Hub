@@ -1,5 +1,6 @@
 import pg from "pg";
 import dotenv from "dotenv";
+import { initialiseSchema } from "./tableCreation";
 
 dotenv.config();
 
@@ -13,9 +14,11 @@ const pool = new Pool({
   database: process.env.DB_NAME,
 });
 
-pool
-  .query("SELECT NOW()")
-  .then(() => console.log("✅ PostgreSQL connected"))
-  .catch((err) => console.error("❌ PostgreSQL Error:", err));
+pool.query("SELECT NOW()")
+  .then(() => {
+    console.log("✅ PostgreSQL connected")
+    return initialiseSchema(pool);
+  })
+  .catch((err) => console.error("PostgreSQL Error:", err));
 
 export default pool;

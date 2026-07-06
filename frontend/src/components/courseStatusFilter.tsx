@@ -2,9 +2,7 @@ import { ChevronDown } from "lucide-react";
 
 interface CourseStatusFilterProps {
   selectedStatus: string;
-  setSelectedStatus: React.Dispatch<
-    React.SetStateAction<string>
-  >;
+  setSelectedStatus: (status: string) => void;
 }
 
 function CourseStatusFilter({

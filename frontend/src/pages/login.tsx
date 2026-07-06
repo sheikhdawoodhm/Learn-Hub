@@ -1,59 +1,97 @@
 import { useState } from "react";
-import { useAuth0 } from "@auth0/auth0-react";
+import API, { setAuthTokenInMemory } from "../api/axiosAPI";
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { login } from "../redux/slices/authSlice";
 
-export default function Login() {
+export default function AuthPage() {
+
+  const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const { loginWithRedirect } = useAuth0();
+
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg("");
+    setSuccessMsg("");
+    
+    try {
+      if (isLogin) {
+        const response = await API.post("/auth/login", { email, password });
+        
+        if (response.data.success) {
+
+          setAuthTokenInMemory(response.data.accessToken);
+
+          dispatch(login(response.data.user));
+          navigate("/courses");
+          console.log(response.data.user);
+        }
+      } else {
+
+        const response = await API.post("/auth/signup", { name, email, password });
+        
+        if (response.data.success) {
+          setSuccessMsg("Account created successfully! Please sign in.");
+          
+
+          setIsLogin(true);
+          setName("");
+          setPassword(""); 
+        }
+      }
+    } catch (err: any) {
+      console.error("Authentication execution failure:", err);
+
+      const message = err.response?.data?.message || "An unexpected error occurred.";
+      setErrorMsg(message);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center overflow-hidden p-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      <main className="w-full max-w-6xl md:h-[85vh] max-h-[800px] flex rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-800">
+      <main className="w-full max-w-6xl md:h-[85vh] max-h-[800px] flex rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-800 animate-fadeIn">
 
+        {/* --- LEFT SIDEBRAND PANEL (SHARED) --- */}
         <section className="hidden md:flex w-1/2 flex-col justify-between p-6 lg:p-12 bg-white dark:bg-gray-800 relative">
-
           <div>
             <div className="flex items-center gap-3 mb-12">
               <div className="w-10 h-10 lg:w-12 lg:h-12 bg-blue-600 flex items-center justify-center rounded-xl">
-                <span className="material-symbols-outlined text-white">
-                  school
-                </span>
+                <span className="material-symbols-outlined text-white">school</span>
               </div>
-
-              <h1 className="text-2xl lg:text-3xl font-bold text-blue-600">
-                LearnHub
-              </h1>
+              <h1 className="text-2xl lg:text-3xl font-bold text-blue-600">LearnHub</h1>
             </div>
 
             <h2 className="text-3xl lg:text-4xl xl:text-5xl font-bold leading-tight text-gray-900 dark:text-white mb-6">
-              Learn smarter with{" "}
-              <span className="text-blue-600">LearnHub</span>
+              Learn smarter with <span className="text-blue-600">LearnHub</span>
             </h2>
 
             <p className="text-base lg:text-lg text-gray-600 dark:text-gray-400 max-w-md">
-              Discover courses, track your learning progress, save favorites,
-              and build skills that help you grow professionally.
+              Discover courses, track your learning progress, save favorites, and build skills that help you grow professionally.
             </p>
           </div>
 
           <div className="space-y-3 lg:space-y-4">
             <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-              <span className="material-symbols-outlined text-blue-600">
-                menu_book
-              </span>
+              <span className="material-symbols-outlined text-blue-600">menu_book</span>
               <span>Explore quality courses</span>
             </div>
-
             <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-              <span className="material-symbols-outlined text-blue-600">
-                analytics
-              </span>
+              <span className="material-symbols-outlined text-blue-600">analytics</span>
               <span>Track your learning progress</span>
             </div>
-
             <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-              <span className="material-symbols-outlined text-blue-600">
-                favorite
-              </span>
+              <span className="material-symbols-outlined text-blue-600">favorite</span>
               <span>Save your favorite content</span>
             </div>
           </div>
@@ -70,74 +108,109 @@ export default function Login() {
           </div>
         </section>
 
+        {/* --- RIGHT ACTION FORM PANEL (DYNAMIC) --- */}
         <section className="w-full md:w-1/2 flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-6 md:p-8">
-          <div className="w-full max-w-md">
+          <div className="w-full max-w-md transition-all duration-300">
 
+            {/* Mobile Header branding */}
             <div className="md:hidden text-center mb-8">
               <div className="w-12 h-12 bg-blue-600 mx-auto flex items-center justify-center rounded-xl mb-3">
-                <span className="material-symbols-outlined text-white">
-                  school
-                </span>
+                <span className="material-symbols-outlined text-white">school</span>
               </div>
-
-              <h1 className="text-2xl font-bold text-blue-600">
-                LearnHub
-              </h1>
+              <h1 className="text-2xl font-bold text-blue-600">LearnHub</h1>
             </div>
 
+            {/* Dynamic header text based on current context */}
             <h3 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Welcome Back
+              {isLogin ? "Welcome Back" : "Create Account"}
             </h3>
 
             <p className="text-gray-600 dark:text-gray-400 mb-8">
-              Sign in to continue your learning journey.
+              {isLogin ? "Sign in to continue your learning journey." : "Join us to begin tracking your courses."}
             </p>
 
-            <form className="space-y-4 md:space-y-5">
+            {/* --- Feedback Notification Banners --- */}
+            {errorMsg && (
+              <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-xl border border-red-200 dark:border-red-800/30 animate-fadeIn">
+                {errorMsg}
+              </div>
+            )}
 
+            {successMsg && (
+              <div className="p-3 mb-4 text-sm text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 rounded-xl border border-green-200 dark:border-green-800/30 animate-fadeIn">
+                {successMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
+
+              {/* Conditional Field: Name Input only displays when switching out of login mode */}
+              {!isLogin && (
+                <div className="animate-slideDown">
+                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <span className="material-symbols-outlined absolute left-3 top-3 text-gray-400">
+                      person
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="John Doe"
+                      className="w-full h-12 pl-10 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Email Input (Shared) */}
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   Email
                 </label>
-
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3 top-3 text-gray-400">
                     mail
                   </span>
-
                   <input
                     type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     className="w-full h-12 pl-10 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
                   />
                 </div>
               </div>
 
+              {/* Password Input (Shared) */}
               <div>
                 <div className="flex justify-between mb-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Password
                   </label>
-
-                  <button
-                    type="button"
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    Forgot Password?
-                  </button>
+                  {isLogin && (
+                    <button type="button" className="text-sm text-blue-600 hover:underline">
+                      Forgot Password?
+                    </button>
+                  )}
                 </div>
 
                 <div className="relative">
                   <span className="material-symbols-outlined absolute left-3 top-3 text-gray-400">
                     lock
                   </span>
-
                   <input
                     type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
                     className="w-full h-12 pl-10 pr-12 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition"
                   />
-
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
@@ -152,57 +225,51 @@ export default function Login() {
 
               <button
                 type="submit"
-                className="w-full h-12 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl font-semibold transition"
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl font-semibold transition mt-2"
               >
-                submit
+                {isLogin ? "Sign In" : "Create Account"}
               </button>
             </form>
 
+            {/* --- GOOGLE AUTH OAUTH SWITCH BANNER --- */}
             <div className="flex items-center my-6">
               <div className="flex-1 h-px bg-gray-300 dark:bg-gray-700"></div>
               <span className="px-3 text-sm text-gray-500">OR</span>
               <div className="flex-1 h-px bg-gray-300 dark:bg-gray-700"></div>
             </div>
 
-            <button onClick={() =>
-              loginWithRedirect({
-                authorizationParams: {
-                  prompt : "select_account",
-                  connection: "google-oauth2",
-                },
-              })
-            } className="w-full cursor-pointer h-12 border border-gray-300 dark:border-gray-700 rounded-xl flex items-center justify-center gap-3 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+            <button className="w-full cursor-pointer h-12 border border-gray-300 dark:border-gray-700 rounded-xl flex items-center justify-center gap-3 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition">
               <svg className="w-5 h-5" viewBox="0 0 48 48">
-                <path
-                  fill="#FFC107"
-                  d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"
-                />
-                <path
-                  fill="#FF3D00"
-                  d="M6.3 14.7l6.6 4.8C14.5 16 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.6 8.3 6.3 14.7z"
-                />
-                <path
-                  fill="#4CAF50"
-                  d="M24 44c5.3 0 10.3-2 14-5.4l-6.5-5.3C29.4 35.7 26.9 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.6 5.1C9.4 39.7 16.1 44 24 44z"
-                />
-                <path
-                  fill="#1976D2"
-                  d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.1-3.4 5.7-6.3 7.3l6.5 5.3C38.7 37.2 44 31.4 44 24c0-1.3-.1-2.7-.4-3.5z"
-                />
+                <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z" />
+                <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 16 18.9 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.6 6.1 29.6 4 24 4 16.3 4 9.6 8.3 6.3 14.7z" />
+                <path fill="#4CAF50" d="M24 44c5.3 0 10.3-2 14-5.4l-6.5-5.3C29.4 35.7 26.9 36 24 36c-5.3 0-9.7-3.3-11.3-8l-6.6 5.1C9.4 39.7 16.1 44 24 44z" />
+                <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.1-3.4 5.7-6.3 7.3l6.5 5.3C38.7 37.2 44 31.4 44 24c0-1.3-.1-2.7-.4-3.5z" />
               </svg>
-
-              <span className="font-medium">Continue with Google</span>
+              <span className="font-medium">
+                {isLogin ? "Continue with Google" : "Sign up with Google"}
+              </span>
             </button>
 
+            {/* VIEW SWITCH TOGGLE CONTROLLER LINK */}
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">
-              Don&apos;t have an account?{" "}
+              {isLogin ? "Don't have an account? " : "Already have an account? "}
               <button
                 type="button"
+                onClick={() => {
+                  setIsLogin(!isLogin);
+
+                  setName("");
+                  setEmail("");
+                  setPassword("");
+                  setErrorMsg("");
+                  setSuccessMsg("");
+                }}
                 className="text-blue-600 hover:underline font-medium"
               >
-                Sign Up
+                {isLogin ? "Sign Up" : "Sign In"}
               </button>
             </p>
+
           </div>
         </section>
 

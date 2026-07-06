@@ -1,23 +1,26 @@
-import { Heart, Star, Eye, Clock, User } from "lucide-react";
+import React from "react";
+import { Heart, Star, Eye, Clock } from "lucide-react";
 import { useTheme } from "../context/themeContext";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { addFavorite, removeFavorite } from "../redux/slices/favoritesSlice";
 import "react-tooltip/dist/react-tooltip.css";
+import API from "../api/axiosAPI";
 
 interface CourseCardProps {
   course: {
-    id: string;
+    id: string | number;
     title: string;
     description: string;
-    thumbnail?: string;
+    thumbnail_url?: string;
     difficulty?: string;
-    instructor?: string;
-    instructorImage?: string;
     rating?: number;
     views?: string | number;
     duration?: string;
     modules?: any[];
+    total_modules?: number;
+    total_lessons?: number; 
+    totalLessons?: number;
   };
 }
 
@@ -26,111 +29,133 @@ function CourseCard({ course }: CourseCardProps) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // 1. Progress State Check (Using your userProgress slice structure)
-  // Fallback check matching either your original setup or module-count checks
-  const progress = useSelector((state: any) => state.progress?.progress);
-  const courseProgress = progress?.[course.id]?.progress ?? 0;
+  const completedLectures = useSelector((state: any) =>
+    state.progress?.completedLectures || state.userProgress?.completedLectures || []
+  );
 
-  // 2. Favorites System
-  const favorites = useSelector((state: any) => state.favorites?.favorites || []);
-  const isFavorite = favorites.some((fav: any) => fav.id === course.id);
+  const totalLessons = course.total_lessons || course.totalLessons ||
+    course.modules?.reduce((acc: number, mod: any) => acc + (mod.videos?.length || 0), 0) || 0;
+
+  const completedForThisCourse = completedLectures.filter((key: string) =>
+    key.startsWith(`${course.id}-`)
+  ).length;
+
+  const courseProgress = totalLessons > 0
+    ? Math.min(Math.round((completedForThisCourse / totalLessons) * 100), 100)
+    : 0;
+
+  const favoritesState = useSelector((state: any) => state.favorites);
+  const favorites = favoritesState?.favorites || [];
+
+  const isFavorite = favorites.some((fav: any) => String(fav?.id) === String(course?.id));
 
   const handleFavorite = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevents clicking the heart from triggering the card navigate link
+    e.stopPropagation(); 
+    
+
     if (isFavorite) {
       dispatch(removeFavorite(course.id));
+      
+      // FIX 1: Add authentication headers to remove endpoint if you have one, or update to DELETE method
+      API.delete(`/favorites/${course.id}`).catch((error) => {
+        console.error("Error removing favorite from backend:", error);
+        // Fallback rollback
+        dispatch(addFavorite({ id: course.id, title: course.title, description: course.description }));
+      });
+
     } else {
-      dispatch(addFavorite(course));
-    }
+      const favoritePayload = {
+        id: course.id,
+        title: course.title,
+        description: course.description,
+        thumbnail: course.thumbnail_url || (course as any).thumbnail,
+        difficulty: course.difficulty,
+        rating: course.rating,
+        views: course.views,
+        total_modules: course.total_modules || 0
+      };
+      
+      dispatch(addFavorite(favoritePayload));
+      
+     
+      API.post(`/favorites/${course.id}`
+      ).catch((error) => {
+        console.error("Error adding favorite to backend:", error);
+        dispatch(removeFavorite(course.id));
+      });
+    } 
   };
 
   return (
     <div
-      onClick={() => navigate(`/courses/${course.id}`)} // Clicking anywhere on the card opens your module page
-      className={`group h-full flex flex-col rounded-2xl overflow-hidden border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer ${
-        darkMode ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"
-      }`}
+      onClick={() => navigate(`/courses/${course.id}`)}
+      className={`group h-full flex flex-col rounded-2xl overflow-hidden border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer ${darkMode ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"
+        }`}
     >
-      {/* Thumbnail Banner */}
+      {/* Thumbnail Aspect Container */}
       <div className="relative overflow-hidden aspect-video bg-slate-100 dark:bg-slate-950">
         <img
-          src={course.thumbnail || "https://images.unsplash.com/photo-1618401471353-b98aedd07871?w=500"}
+          // FIX 4: Prioritized the aliased `thumbnail` object property mapped from your metadata query
+          src={(course as any).thumbnail || course.thumbnail_url || "https://images.unsplash.com/photo-1618401471353-b98aedd07871?w=500"}
           alt={course.title}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          onError={(e) => {
-            e.currentTarget.src = "https://images.unsplash.com/photo-1618401471353-b98aedd07871?w=500";
-          }}
         />
 
-        {/* Difficulty Badge */}
         {course.difficulty && (
-          <span className={`absolute top-3 left-3 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm text-white ${
-            course.difficulty === "Beginner" ? "bg-emerald-500" :
+          <span className={`absolute top-3 left-3 text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm text-white ${course.difficulty === "Beginner" ? "bg-emerald-500" :
             course.difficulty === "Intermediate" ? "bg-amber-500" : "bg-rose-500"
-          }`}>
+            }`}>
             {course.difficulty}
           </span>
         )}
 
-        {/* Favorite Heart Button */}
         <button
+          type="button"
           onClick={handleFavorite}
-          data-tooltip-id="favorite-tip"
-          data-tooltip-content={isFavorite ? "Remove from favorites" : "Add to favorites"}
-          className={`absolute top-3 right-3 w-9 h-9 cursor-pointer rounded-full flex items-center justify-center backdrop-blur transition-all ${
-            darkMode ? "bg-black/60 hover:bg-black/80" : "bg-white/80 hover:bg-white"
-          }`}
+          className={`absolute top-3 right-3 w-9 h-9 cursor-pointer rounded-full flex items-center justify-center backdrop-blur transition-all z-10 ${darkMode ? "bg-black/60 hover:bg-black/80" : "bg-white/80 hover:bg-white"
+            }`}
         >
-          <Heart size={16} className={isFavorite ? "fill-red-500 text-red-500" : "text-gray-400"} />
+          <Heart
+            size={16}
+            className={isFavorite ? "fill-red-500 text-red-500 scale-110 transition-transform" : "text-gray-400 hover:text-red-400"}
+          />
         </button>
       </div>
 
-      {/* Main Content Info Wrapper */}
       <div className="p-5 flex flex-col flex-1 space-y-3">
-        
-        {/* Title */}
-        <h3 className={`text-base font-bold line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${
-          darkMode ? "text-white" : "text-gray-900"
-        }`}>
+        <h3 className={`text-base font-bold line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${darkMode ? "text-white" : "text-gray-900"
+          }`}>
           {course.title}
         </h3>
 
-        {/* Instructor Block (Displays safe placeholders if missing in your form slice) */}
-        <div className="flex items-center gap-2 text-xs">
-          {course.instructorImage ? (
-            <img src={course.instructorImage} className="w-5 h-5 rounded-full" />
-          ) : (
-            <User className="w-4 h-4 text-gray-400" />
-          )}
-          <span className={`truncate font-medium ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
-            {course.instructor || "Self-Paced Course"}
-          </span>
-        </div>
-
-        {/* Description Text */}
         <p className={`text-xs line-clamp-2 leading-relaxed flex-1 ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
           {course.description}
         </p>
 
-        {/* Metadata Row Grid */}
         <div className="grid grid-cols-3 gap-2 text-[11px] font-medium pt-2 text-gray-400 border-t border-gray-100 dark:border-gray-800">
-          <span className="flex items-center gap-1"><Star size={12} className="text-amber-500 fill-amber-500"/> {course.rating || "4.8"}</span>
-          <span className="flex items-center gap-1"><Eye size={12}/> {course.views || "150"}</span>
-          <span className="flex items-center gap-1 truncate"><Clock size={12}/> {course.duration || `${course.modules?.length || 0} Modules`}</span>
+          <span className="flex items-center gap-1">
+            <Star size={12} className="text-amber-500 fill-amber-500" /> {course.rating || "4.8"}
+          </span>
+          <span className="flex items-center gap-1">
+            <Eye size={12} /> {course.views || "150"}
+          </span>
+          <span className="flex items-center gap-1 truncate">
+            <Clock size={12} /> {course.total_modules || 0} Modules
+          </span>
         </div>
 
-        {/* Dynamic Progress Engine Layout */}
         <div className="pt-2">
-          <div className="h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden" data-tooltip-id="progress-tip" data-tooltip-content={`${courseProgress}% completed`}>
+          <div className="h-1.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
             <div className="h-full bg-blue-600 transition-all duration-300" style={{ width: `${courseProgress}%` }} />
           </div>
-          <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-1">
-            {courseProgress}% Completed
-          </p>
+          <div className="flex justify-between text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-1">
+            <span>{courseProgress}% Completed</span>
+            <span className="text-gray-400 font-normal">{completedForThisCourse}/{totalLessons} Lessons</span>
+          </div>
         </div>
 
-        {/* CTA Launch Action Button */}
         <button
+          type="button"
           onClick={(e) => {
             e.stopPropagation();
             navigate(`/courses/${course.id}`);

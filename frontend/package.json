@@ -14,6 +14,8 @@
     "@reduxjs/toolkit": "^2.12.0",
     "@tanstack/react-form": "^1.33.0",
     "@tanstack/react-store": "^0.11.0",
+    "@tanstack/zod-form-adapter": "^0.42.1",
+    "axios": "^1.18.1",
     "lucide-react": "^1.17.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",

@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 
 import CourseCard from "./courseCard";
 import CourseCardSkeleton from "./courseCardSkeleton";
-import { fetchCourses } from "../services/fetchCourses";
+
+import API from "../api/axiosAPI";
 
 function CoursesSection() {
   const [courses, setCourses] = useState<any[]>([]);
@@ -12,10 +13,12 @@ function CoursesSection() {
   useEffect(() => {
     const loadFeaturedCourses = async () => {
       try {
-        const data = await fetchCourses(
-          "react javascript typescript web development"
-        );
 
+
+
+
+        const response = await API.get("/courses");
+        const data = response.data.courses; // Assuming the backend returns { courses: [...] }
         setCourses(data.slice(0, 3));
       } catch (error) {
         console.error(error);
@@ -56,7 +59,7 @@ function CoursesSection() {
       {!loading && courses.length > 0 && (
         <div className="text-center mt-12">
           <Link
-            to="/explore"
+            to="/courses"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-gray-300 dark:border-gray-700 font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             Explore All Courses →

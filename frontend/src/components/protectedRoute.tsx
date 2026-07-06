@@ -1,20 +1,22 @@
-import { useAuth0 } from "@auth0/auth0-react";
+import { useSelector } from "react-redux";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth0();
   const navigate = useNavigate();
+  
+
+  const { isLoggedIn } = useSelector((state: any) => state.auth);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+
+    if (!isLoggedIn) {
       navigate("/login");
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isLoggedIn, navigate]);
 
-  if (isLoading) return null;
 
-  return isAuthenticated ? children : null;
+  return isLoggedIn ? <>{children}</> : null;
 }
 
 export default ProtectedRoute;
