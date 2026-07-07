@@ -68,14 +68,14 @@ export const updateCourseStatusToPublished = async (client: PoolClient, courseId
 
 
 
-export const getAllCourses = async ( { page, limit, search, category,status}: GetCoursesQueryInput,userId: number) => {
+export const getAllCourses = async ({ page, limit, search, category, status }: GetCoursesQueryInput, userId: number) => {
   const offset = (page - 1) * limit;
 
-
-let dataQuery = `
+  // 1. Added 'WHERE c.status != 'draft'' to ensure drafts are never returned
+  let dataQuery = `
     SELECT 
       c.*,
-      COUNT(DISTINCT m.id)::int as total_modules, -- 🚨 ADD THIS LINE RIGHT HERE!
+      COUNT(DISTINCT m.id)::int as total_modules, 
       COUNT(DISTINCT v.id)::int as total_videos,
       COUNT(DISTINCT CASE WHEN v.quiz_count = v.passed_count THEN v.id END)::int as completed_videos
     FROM courses c
@@ -91,11 +91,15 @@ let dataQuery = `
       LEFT JOIN user_progress vp ON q.id = vp.quiz_id AND vp.user_id = $1
       GROUP BY vid.id
     ) v ON m.id = v.module_id
-    WHERE 1=1
+    WHERE c.status != 'DRAFT'
   `;
   
+  // 2. Added 'WHERE c.status != 'draft'' here as well
   let countQuery = `
-    SELECT COUNT(DISTINCT c.id) 
+    SELECT 
+      c.id,
+      COUNT(DISTINCT v.id)::int as total_videos,
+      COUNT(DISTINCT CASE WHEN v.quiz_count = v.passed_count THEN v.id END)::int as completed_videos
     FROM courses c
     LEFT JOIN modules m ON c.id = m.course_id
     LEFT JOIN (
@@ -109,7 +113,7 @@ let dataQuery = `
       LEFT JOIN user_progress vp ON q.id = vp.quiz_id AND vp.user_id = $1
       GROUP BY vid.id
     ) v ON m.id = v.module_id
-    WHERE 1=1
+    WHERE c.status != 'DRAFT'
   `;
   
   const queryValues: any[] = [userId];
@@ -129,8 +133,9 @@ let dataQuery = `
     index++;
   }
 
+  // CRITICAL FIX: Both queries MUST group by c.id because they use aggregate functions
   dataQuery += ` GROUP BY c.id`;
-
+  countQuery += ` GROUP BY c.id`;
 
   if (status && status !== "All") {
     if (status === "Completed") {
@@ -148,10 +153,10 @@ let dataQuery = `
     }
   }
 
-const countResult = await pool.query(countQuery, queryValues);
+  // CRITICAL FIX: Wrapped count query in a subquery wrapper to accurately count the filtered results
+  const wrappedCountQuery = `SELECT COUNT(*)::int FROM (${countQuery}) as filtered_courses`;
+  const countResult = await pool.query(wrappedCountQuery, queryValues);
   
-
-
   const totalItems = countResult.rows[0] ? parseInt(countResult.rows[0].count, 10) : 0; 
 
   dataQuery += ` ORDER BY c.id DESC LIMIT $${index} OFFSET $${index + 1}`;
@@ -163,7 +168,8 @@ const countResult = await pool.query(countQuery, queryValues);
     courses: dataResult.rows,
     pagination: {
       currentPage: page,
-      totalPages: Math.ceil(totalItems / limit) || 1, // Will now compute perfectly (e.g., 11 / 6 = 2)
+      totalPages: Math.ceil(totalItems / limit) || 1,
       totalItems,
     }
-  }};
+  };
+};

@@ -5,17 +5,18 @@ import { useDispatch } from "react-redux";
 import { login } from "../redux/slices/authSlice";
 
 export default function AuthPage() {
-
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  
+  // 1. New state variable to keep track of user registration intent
+  const [role, setRole] = useState("student"); 
+
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
 
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -30,29 +31,26 @@ export default function AuthPage() {
         const response = await API.post("/auth/login", { email, password });
         
         if (response.data.success) {
-
           setAuthTokenInMemory(response.data.accessToken);
-
+          // Redux receives user payload (e.g., { id, name, email, role })
           dispatch(login(response.data.user));
           navigate("/courses");
           console.log(response.data.user);
         }
       } else {
-
-        const response = await API.post("/auth/signup", { name, email, password });
+        // 2. Transmitting selected role string over to registration endpoint
+        const response = await API.post("/auth/signup", { name, email, password, role });
         
         if (response.data.success) {
           setSuccessMsg("Account created successfully! Please sign in.");
-          
-
           setIsLogin(true);
           setName("");
           setPassword(""); 
+          setRole("student"); // Reset selector state back to base default
         }
       }
     } catch (err: any) {
       console.error("Authentication execution failure:", err);
-
       const message = err.response?.data?.message || "An unexpected error occurred.";
       setErrorMsg(message);
     }
@@ -120,16 +118,14 @@ export default function AuthPage() {
               <h1 className="text-2xl font-bold text-blue-600">LearnHub</h1>
             </div>
 
-            {/* Dynamic header text based on current context */}
             <h3 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
               {isLogin ? "Welcome Back" : "Create Account"}
             </h3>
 
-            <p className="text-gray-600 dark:text-gray-400 mb-8">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               {isLogin ? "Sign in to continue your learning journey." : "Join us to begin tracking your courses."}
             </p>
 
-            {/* --- Feedback Notification Banners --- */}
             {errorMsg && (
               <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-xl border border-red-200 dark:border-red-800/30 animate-fadeIn">
                 {errorMsg}
@@ -144,7 +140,42 @@ export default function AuthPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
 
-              {/* Conditional Field: Name Input only displays when switching out of login mode */}
+              {/* 3. NEW ELEMENT: Role selector toggle buttons shown ONLY on Sign Up view */}
+              {!isLogin && (
+                <div className="animate-slideDown">
+                  <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    I want to join as a:
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setRole("student")}
+                      className={`h-11 rounded-xl font-medium border text-sm transition flex items-center justify-center gap-2 ${
+                        role === "student"
+                          ? "bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900/20 dark:border-blue-500 dark:text-blue-400"
+                          : "bg-white border-gray-300 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-lg">local_library</span>
+                      Student
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRole("instructor")}
+                      className={`h-11 rounded-xl font-medium border text-sm transition flex items-center justify-center gap-2 ${
+                        role === "instructor"
+                          ? "bg-blue-50 border-blue-500 text-blue-600 dark:bg-blue-900/20 dark:border-blue-500 dark:text-blue-400"
+                          : "bg-white border-gray-300 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-lg">co_present</span>
+                      Instructor
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Full Name Input */}
               {!isLogin && (
                 <div className="animate-slideDown">
                   <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -166,7 +197,7 @@ export default function AuthPage() {
                 </div>
               )}
 
-              {/* Email Input (Shared) */}
+              {/* Email Input */}
               <div>
                 <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   Email
@@ -186,7 +217,7 @@ export default function AuthPage() {
                 </div>
               </div>
 
-              {/* Password Input (Shared) */}
+              {/* Password Input */}
               <div>
                 <div className="flex justify-between mb-2">
                   <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -231,7 +262,7 @@ export default function AuthPage() {
               </button>
             </form>
 
-            {/* --- GOOGLE AUTH OAUTH SWITCH BANNER --- */}
+            {/* Google OAuth Banner */}
             <div className="flex items-center my-6">
               <div className="flex-1 h-px bg-gray-300 dark:bg-gray-700"></div>
               <span className="px-3 text-sm text-gray-500">OR</span>
@@ -250,17 +281,17 @@ export default function AuthPage() {
               </span>
             </button>
 
-            {/* VIEW SWITCH TOGGLE CONTROLLER LINK */}
+            {/* View Switch Toggle */}
             <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-8">
               {isLogin ? "Don't have an account? " : "Already have an account? "}
               <button
                 type="button"
                 onClick={() => {
                   setIsLogin(!isLogin);
-
                   setName("");
                   setEmail("");
                   setPassword("");
+                  setRole("student"); // Reset state
                   setErrorMsg("");
                   setSuccessMsg("");
                 }}

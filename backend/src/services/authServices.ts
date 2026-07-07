@@ -6,14 +6,14 @@ import jwt from "jsonwebtoken";
 const ACCESS_SECRET = "super_secret_key_123";
 const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "refresh_super_secret_111";
 
-export const registerUser = async (name: string, email: string, password: string) => {
+export const registerUser = async (name: string, email: string, password: string,role : string) => {
   const existingUser = await findUserByEmail(email);
   if (existingUser) {
     throw new Error("EMAIL_ALREADY_EXISTS");
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
-  const newUser = await createUser(name, email, hashedPassword);
+  const newUser = await createUser(name, email, hashedPassword,role);
   return newUser;
 };
 

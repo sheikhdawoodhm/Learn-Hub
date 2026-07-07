@@ -21,7 +21,6 @@ const AddCourse: React.FC = () => {
   const dispatch = useDispatch();
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Triple-Verified: Hook parameters strictly typed with CourseValues and createCourseSchema
   const form = useForm({
     defaultValues: {
       title: "",
@@ -38,7 +37,6 @@ const AddCourse: React.FC = () => {
     onSubmit: async ({ value }) => {
       setSubmitError(null);
 
-      // Verify that the submitted value strictly passes client-side validation
       const result = createCourseSchema.safeParse(value);
       if (!result.success) {
         const validationMessages = result.error.issues
@@ -59,7 +57,6 @@ const AddCourse: React.FC = () => {
         const error = err as AxiosError<BackendValidationError>;
         console.error("Axios course initialization failure:", error);
 
-        // Fallback safety to ensure navigation proceeds locally even on server error
         const fallbackCourseId = `temp-${Date.now()}`;
         dispatch(addCourse({ id: fallbackCourseId, ...value, modules: [] }));
         navigate("/add-module", { state: { courseId: fallbackCourseId } });

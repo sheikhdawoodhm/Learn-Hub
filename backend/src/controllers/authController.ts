@@ -3,8 +3,8 @@ import * as authService from "../services/authServices";
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    const { name, email, password } = req.body;
-    const newUser = await authService.registerUser(name, email, password); 
+    const { name, email, password , role} = req.body;
+    const newUser = await authService.registerUser(name, email, password, role); 
 
     return res.status(201).json({
       success: true,
@@ -40,7 +40,7 @@ res.cookie("refreshToken", sessionData.refreshToken, {
 
   sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax", 
   
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days matching expiration
+  maxAge: 7 * 24 * 60 * 60 * 1000, 
 });
 
 

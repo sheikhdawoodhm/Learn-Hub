@@ -75,24 +75,20 @@ function App() {
         {location.pathname !== "/login" && <Navbar />}
         
         <Routes>
-          {/* Public Views */}
           <Route path="/" element={<Home/>}/>
           <Route path="/login" element={<Login/>}/>
           
-          {/* Protected Route Gates */}
           <Route path="/courses" element={<ProtectedRoute><Courses/></ProtectedRoute>}/>
           <Route path="/favorites" element={<ProtectedRoute><Favorites/></ProtectedRoute>}/>
           
-          {/* 💡 Secured Content & Syllabus Workspace Flows */}
           <Route path="/courses/:courseId" element={<ProtectedRoute><CourseModulesPage/></ProtectedRoute>}/>
           <Route path="/courses/:courseId/module/:moduleId/video/:videoId" element={<ProtectedRoute><VideoPlaybackPage /></ProtectedRoute>} /> 
           <Route path="/courses/:courseId/module/:moduleId/video/:videoId/quiz" element={<ProtectedRoute><QuizPage/></ProtectedRoute>} />
           
-          {/* Admin Management Catalogs */}
           <Route path="/add-course" element={<ProtectedRoute><AddCourse/></ProtectedRoute>}/>
           <Route path="/add-module" element={<ProtectedRoute><AddModule/></ProtectedRoute>}/>
           
-          {/* Commented out templates */}
+      
           {/* <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/> */}
           {/* <Route path="/courses/:videoId" element={<ProtectedRoute><CourseDetails/></ProtectedRoute>}/> */}
           {/* <Route path="/dashboard" element={<ProtectedRoute><DashBoard/></ProtectedRoute>}/> */}

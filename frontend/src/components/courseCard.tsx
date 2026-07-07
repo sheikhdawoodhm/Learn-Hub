@@ -49,19 +49,27 @@ function CourseCard({ course }: CourseCardProps) {
 
   const isFavorite = favorites.some((fav: any) => String(fav?.id) === String(course?.id));
 
-  const handleFavorite = (e: React.MouseEvent) => {
+  const handleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation(); 
-    
 
     if (isFavorite) {
       dispatch(removeFavorite(course.id));
       
-      // FIX 1: Add authentication headers to remove endpoint if you have one, or update to DELETE method
-      API.delete(`/favorites/${course.id}`).catch((error) => {
+      try {
+        await API.post("/favorites", { courseId: course.id });
+      } catch (error) {
         console.error("Error removing favorite from backend:", error);
-        // Fallback rollback
-        dispatch(addFavorite({ id: course.id, title: course.title, description: course.description }));
-      });
+        dispatch(addFavorite({ 
+          id: course.id, 
+          title: course.title, 
+          description: course.description,
+          thumbnail: course.thumbnail_url || (course as any).thumbnail,
+          difficulty: course.difficulty,
+          rating: course.rating,
+          views: course.views,
+          total_modules: course.total_modules || 0
+        }));
+      }
 
     } else {
       const favoritePayload = {
@@ -77,12 +85,12 @@ function CourseCard({ course }: CourseCardProps) {
       
       dispatch(addFavorite(favoritePayload));
       
-     
-      API.post(`/favorites/${course.id}`
-      ).catch((error) => {
+      try {
+        await API.post("/favorites", { courseId: course.id });
+      } catch (error) {
         console.error("Error adding favorite to backend:", error);
         dispatch(removeFavorite(course.id));
-      });
+      }
     } 
   };
 
@@ -92,10 +100,8 @@ function CourseCard({ course }: CourseCardProps) {
       className={`group h-full flex flex-col rounded-2xl overflow-hidden border shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer ${darkMode ? "bg-gray-900 border-gray-800" : "bg-white border-gray-200"
         }`}
     >
-      {/* Thumbnail Aspect Container */}
       <div className="relative overflow-hidden aspect-video bg-slate-100 dark:bg-slate-950">
         <img
-          // FIX 4: Prioritized the aliased `thumbnail` object property mapped from your metadata query
           src={(course as any).thumbnail || course.thumbnail_url || "https://images.unsplash.com/photo-1618401471353-b98aedd07871?w=500"}
           alt={course.title}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
