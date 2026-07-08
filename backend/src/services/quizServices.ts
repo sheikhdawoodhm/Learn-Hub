@@ -52,3 +52,24 @@ export const addOptionToQuestion = async (questionId: number, optionText: string
 export const removeQuiz = async (id: number) => {
   await quizQueries.deleteQuizById(id);
 };
+
+export const validateAnswer = async (questionId: number, answerLetter: string) => {
+  return await quizQueries.validateAnswerQuery(questionId, answerLetter);
+};
+
+export const updateQuestion = async (
+  questionId: number, 
+  questionText: string, 
+  options: { letter: string; text: string }[], 
+  correctAnswerLetter: string
+) => {
+  await quizQueries.updateQuestionText(questionId, questionText);
+  for (const opt of options) {
+    if (opt.text) {
+      await quizQueries.updateOptionText(questionId, opt.letter, opt.text);
+    }
+  }
+  if (correctAnswerLetter) {
+    await quizQueries.updateOptionCorrectness(questionId, correctAnswerLetter);
+  }
+};

@@ -1,33 +1,43 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-
+import { findSession } from "../queries/authQueries";
 
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: number;
-    email: string; // Added to match your token payload structure safely!
+    email: string;
     role: string;
+    sessionId?: string;
   };
 }
 
-export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ success: false, message: "Access Denied: No Token Provided" });
+    res.status(401).json({ success: false, message: "Access Denied: No Token Provided" });
+    return;
   }
  
   try {
     const secret = "super_secret_key_123";
     
-
-    const verified = jwt.verify(token, secret) as { id: number; email: string; role: string };
+    const verified = jwt.verify(token, secret) as { id: number; email: string; role: string; sessionId?: string };
     
-    req.user = verified; // This works flawlessly now with no compiler warnings!
+    if (verified.sessionId) {
+      const session = await findSession(verified.sessionId);
+      if (!session) {
+        res.status(401).json({ success: false, message: "Session expired or invalid" });
+        return;
+      }
+    }
+
+    req.user = verified; 
     
     next();
   } catch (error) {
-    return res.status(403).json({ success: false, message: "Invalid or Expired Token" });
+    res.status(403).json({ success: false, message: "Invalid or Expired Token" });
+    return;
   }
 };

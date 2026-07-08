@@ -1,6 +1,5 @@
 import {useLocation,useParams,} from "react-router-dom";
 import YouTube from "react-youtube";
-import { useDispatch } from "react-redux";
 
 import { useAppSelector } from "../hooks/useAppSelector";
 import { useEffect, useRef } from "react";
@@ -15,21 +14,13 @@ function CourseDetails() {
   
   const intervalRef = useRef<number | null>(null);
 
-  const dispatch = useDispatch();
-
-    if (!videoId) {
-    return (
-      <div>
-        Course not found
-      </div>
-    );
-  }
-
   const progress = useAppSelector((state : any)=>{
-    return state.progress.progress;
+    return state.userProgress?.progress || {};
   }
   )
   const handleReady = (e : any)=>{
+    if (!videoId) return;
+
     console.log("YouTube Ready");
     const player = e.target;
     const savedTime = progress?.[videoId]?.currentTime;
@@ -67,6 +58,14 @@ function CourseDetails() {
     }
   };
 }, []);
+
+  if (!videoId) {
+    return (
+      <div>
+        Course not found
+      </div>
+    );
+  }
 
   if (!course) {
   return (

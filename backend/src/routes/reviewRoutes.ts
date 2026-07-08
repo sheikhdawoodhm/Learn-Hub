@@ -9,6 +9,6 @@ const router = Router();
 
 router.get("/course/:courseId", ctrl.handleGetReviews);
 router.post("/", authenticateToken, ctrl.handleCreateReview);
-
+router.delete("/:id", authenticateToken, ctrl.handleDeleteComment);
 
 export default router;

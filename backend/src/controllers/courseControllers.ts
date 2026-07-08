@@ -37,6 +37,35 @@ export const compileCourseModules = async (
   }
 };
 
+export const updateCourseDetails = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { courseId } = req.params as { courseId: string };
+    const inputData = req.body as CreateCourseInput;
+    const courseRecord = await courseServices.updateCourse(courseId, inputData);
+    res.status(200).json({ success: true, course: courseRecord });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteCourse = async (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { courseId } = req.params as { courseId: string };
+    await courseServices.deleteCourse(courseId);
+    res.status(200).json({ success: true, message: "Course deleted successfully." });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getCoursesOverview = async (
   req: AuthenticatedRequest, 
   res: Response,
@@ -64,6 +93,37 @@ export const getCoursesOverview = async (
   );
     
     res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleGetDrafts = async (
+  req: AuthenticatedRequest, 
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const drafts = await courseServices.fetchDraftCourses();
+    res.status(200).json({ success: true, drafts });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleGetCourseById = async (
+  req: AuthenticatedRequest, 
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { courseId } = req.params as { courseId: string };
+    const course = await courseServices.fetchCourseById(courseId);
+    if (!course) {
+      res.status(404).json({ success: false, message: "Course not found" });
+      return;
+    }
+    res.status(200).json({ success: true, course });
   } catch (error) {
     next(error);
   }

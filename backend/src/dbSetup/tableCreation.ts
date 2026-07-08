@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { seedDatabase } from "../scripts/seedDatabase";
 
 export const initialiseSchema = async (pool: Pool) => {
     const schemaSQL = `
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS courses (
     title VARCHAR(255) NOT NULL,
     description TEXT,
     category VARCHAR(100),
+    difficulty VARCHAR(50) DEFAULT 'Beginner',
     thumbnail_url TEXT, 
     status VARCHAR(20) DEFAULT 'draft',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -66,7 +68,7 @@ CREATE TABLE IF NOT EXISTS ratings (
     course_id INTEGER NOT NULL,
     rating INTEGER NOT NULL,
     CONSTRAINT fk_ratings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CONSTRAINT fk_ratings_course KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ratings_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
     CONSTRAINT chk_rating CHECK (rating BETWEEN 1 AND 5),
     CONSTRAINT unique_rating UNIQUE (user_id, course_id)
 );
@@ -120,10 +122,80 @@ CREATE TABLE IF NOT EXISTS user_progress (
     CONSTRAINT fk_progress_quiz FOREIGN KEY (quiz_id) REFERENCES quizzes(id) ON DELETE CASCADE,
     CONSTRAINT unique_user_lecture_progress UNIQUE (user_id, lecture_key)
 );
+
+CREATE TABLE IF NOT EXISTS certificates (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    course_id INTEGER NOT NULL,
+    certificate_url TEXT,
+    issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_cert_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_cert_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+    CONSTRAINT unique_user_course_cert UNIQUE (user_id, course_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+    session_id VARCHAR(255) PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    created_at BIGINT NOT NULL, -- Unix timestamp
+    expires_at BIGINT NOT NULL, -- Unix timestamp
+    CONSTRAINT fk_session_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 `;
 
     try {
         await pool.query(schemaSQL);
+        await pool.query(`
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        AND table_name = 'certificates'
+    ) THEN
+        CREATE TABLE certificates (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            course_id INTEGER NOT NULL,
+            certificate_url TEXT,
+            issued_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_cert_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            CONSTRAINT fk_cert_course FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE,
+            CONSTRAINT unique_user_course_cert UNIQUE (user_id, course_id)
+        );
+    END IF;
+    
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'courses'
+        AND column_name = 'difficulty'
+    ) THEN
+        ALTER TABLE courses ADD COLUMN difficulty VARCHAR(50) DEFAULT 'Beginner';
+    END IF;
+END $$;
+
+UPDATE users
+SET role = 'student'
+WHERE role IS NULL OR role NOT IN ('student', 'instructor', 'admin');
+
+ALTER TABLE users ALTER COLUMN role SET DEFAULT 'student';
+ALTER TABLE users ALTER COLUMN role SET NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'chk_users_role'
+    ) THEN
+        ALTER TABLE users
+        ADD CONSTRAINT chk_users_role CHECK (role IN ('student', 'instructor', 'admin'));
+    END IF;
+END $$;
+`);
         console.log("=========================================");
         console.log("DATABASE SCHEMA: INITIALIZED SUCCESSFULLY");
         console.log("=========================================");

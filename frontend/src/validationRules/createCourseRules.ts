@@ -14,7 +14,7 @@ export const saveModulesSchema = z.object({
       videos: z.array(
         z.object({
           videoTitle: z.string().trim().min(1, "Video title is required"),
-          videoUrl: z.string().trim().url("Invalid lesson video URL format"),
+          videoUrl: z.string().trim().url("Must be a valid URL (include http:// or https://)"),
           questions: z.array(
             z.object({
               question: z.string().trim().min(1, "Question text cannot be empty"),

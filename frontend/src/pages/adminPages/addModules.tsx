@@ -3,10 +3,12 @@ import { useForm } from "@tanstack/react-form";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AxiosError } from "axios";
 import { Plus, Trash2, Video, HelpCircle, Save, Sparkles, Layers } from "lucide-react";
-import { zodValidator } from "@tanstack/zod-form-adapter"; // Verified Import
 import API from "../../api/axiosAPI";
+import { zodValidator } from "@tanstack/zod-form-adapter";
+import { z } from "zod";
 
-import { saveModulesSchema, type SaveModulesValues } from "../../validationRules/createCourseRules";
+import { saveModulesSchema } from "../../validationRules/createCourseRules";
+import { useModal } from "../../context/ModalContext";
 
 type BackendValidationError = {
   success: boolean;
@@ -16,10 +18,14 @@ type BackendValidationError = {
 const AddModule: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const courseId = location.state?.courseId;
+  const { confirm } = useModal();
+  
+  // Robustly extract courseId from state or URL query params
+  const courseId = location.state?.courseId || new URLSearchParams(location.search).get("courseId");
 
-  // Verified: Passing generic types explicitly prevents string path mismatch compilation drops
   const form = useForm({
+    // @ts-ignore: version mismatch between react-form and zod-form-adapter
+    validatorAdapter: zodValidator(),
     defaultValues: {
       modules: [
         {
@@ -51,6 +57,15 @@ const AddModule: React.FC = () => {
         alert("Missing course information. Please create the course settings first.");
         return;
       }
+      const result = saveModulesSchema.safeParse(value);
+      if (!result.success) {
+        const validationMessages = result.error.issues
+          .map((issue) => `• ${issue.path.join(".") || "field"}: ${issue.message}`)
+          .join("\n");
+        alert(`Validation Error:\n\n${validationMessages}`);
+        return;
+      }
+
       try {
         await API.post(`/courses/${courseId}/modules`, value);
         alert("Your course curriculum has been successfully saved!");
@@ -126,14 +141,21 @@ const AddModule: React.FC = () => {
                       {modulesField.state.value.length > 1 && (
                         <button
                           type="button"
-                          onClick={() => {
-                            const nextModules = [...modulesField.state.value];
-                            nextModules.splice(mIndex, 1);
-                            modulesField.setValue(nextModules);
+                          onClick={async () => {
+                            const isConfirmed = await confirm({
+                              title: "Delete Chapter",
+                              message: "Are you sure you want to delete this entire chapter? All videos and quizzes inside will be lost."
+                            });
+                            if (isConfirmed) {
+                              const nextModules = [...modulesField.state.value];
+                              nextModules.splice(mIndex, 1);
+                              modulesField.setValue(nextModules);
+                            }
                           }}
-                          className="text-rose-500 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all text-xs font-semibold flex items-center gap-1"
+                          className="text-rose-500 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                         >
-                          <Trash2 className="w-3.5 h-3.5" /> Remove Chapter
+                          <Trash2 className="w-4 h-4" /> 
+                          <span className="hidden sm:inline">Remove Chapter</span>
                         </button>
                       )}
                     </div>
@@ -142,6 +164,7 @@ const AddModule: React.FC = () => {
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Chapter Name *</label>
                       <form.Field
                         name={`modules[${mIndex}].moduleName`}
+                        validators={{ onChange: z.string().trim().min(1, "Module name cannot be left blank") }}
                         children={(subField) => (
                           <>
                             <input
@@ -149,10 +172,11 @@ const AddModule: React.FC = () => {
                               placeholder="e.g. Introduction to React Basics"
                               value={subField.state.value}
                               onChange={(e) => subField.setValue(e.target.value)}
+                              onBlur={subField.handleBlur}
                               className={inputStyles}
                             />
-                            {subField.state.meta.errors.length > 0 && (
-                              <p className="text-[10px] text-red-500 font-semibold mt-0.5">
+                            {subField.state.meta.isTouched && subField.state.meta.errors.length > 0 && (
+                              <p className="text-[10px] text-red-500 font-semibold mt-0.5 animate-fadeIn">
                                 {subField.state.meta.errors.map((err: any) => err?.message || String(err)).join(", ")}
                               </p>
                             )}
@@ -173,14 +197,20 @@ const AddModule: React.FC = () => {
                             {module.videos.length > 1 && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  const nextModules = [...modulesField.state.value];
-                                  nextModules[mIndex].videos.splice(vIndex, 1);
-                                  modulesField.setValue(nextModules);
+                                onClick={async () => {
+                                  const isConfirmed = await confirm({
+                                    title: "Delete Video Lesson",
+                                    message: "Are you sure you want to delete this video lesson and its quizzes?"
+                                  });
+                                  if (isConfirmed) {
+                                    const nextModules = [...modulesField.state.value];
+                                    nextModules[mIndex].videos.splice(vIndex, 1);
+                                    modulesField.setValue(nextModules);
+                                  }
                                 }}
-                                className="text-rose-500 hover:text-rose-600 text-xs font-medium flex items-center gap-0.5"
+                                className="text-rose-500 hover:text-rose-600 p-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all text-xs font-medium flex items-center gap-1 cursor-pointer"
                               >
-                                <Trash2 className="w-3 h-3" /> Remove Video
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>
@@ -190,6 +220,7 @@ const AddModule: React.FC = () => {
                               <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Video Title *</label>
                               <form.Field
                                 name={`modules[${mIndex}].videos[${vIndex}].videoTitle`}
+                                validators={{ onChange: z.string().trim().min(1, "Video title is required") }}
                                 children={(subField) => (
                                   <>
                                     <input
@@ -197,10 +228,11 @@ const AddModule: React.FC = () => {
                                       placeholder="e.g. Setting up your project workspace"
                                       value={subField.state.value}
                                       onChange={(e) => subField.setValue(e.target.value)}
+                                      onBlur={subField.handleBlur}
                                       className={inputStyles}
                                     />
-                                    {subField.state.meta.errors.length > 0 && (
-                                      <p className="text-xs text-red-500 font-semibold mt-1">
+                                    {subField.state.meta.isTouched && subField.state.meta.errors.length > 0 && (
+                                      <p className="text-xs text-red-500 font-semibold mt-1 animate-fadeIn">
                                         {subField.state.meta.errors.map((err: any) => err?.message || String(err)).join(", ")}
                                       </p>
                                     )}
@@ -212,6 +244,7 @@ const AddModule: React.FC = () => {
                               <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">Video Link *</label>
                               <form.Field
                                 name={`modules[${mIndex}].videos[${vIndex}].videoUrl`}
+                                validators={{ onChange: z.string().trim().url("Must be a valid URL (include http:// or https://)") }}
                                 children={(subField) => (
                                   <>
                                     <input
@@ -219,10 +252,11 @@ const AddModule: React.FC = () => {
                                       placeholder="e.g. https://www.youtube.com/watch?v=..."
                                       value={subField.state.value}
                                       onChange={(e) => subField.setValue(e.target.value)}
+                                      onBlur={subField.handleBlur}
                                       className={inputStyles}
                                     />
-                                    {subField.state.meta.errors.length > 0 && (
-                                      <p className="text-xs text-red-500 font-semibold mt-1">
+                                    {subField.state.meta.isTouched && subField.state.meta.errors.length > 0 && (
+                                      <p className="text-xs text-red-500 font-semibold mt-1 animate-fadeIn">
                                         {subField.state.meta.errors.map((err: any) => err?.message || String(err)).join(", ")}
                                       </p>
                                     )}
@@ -244,14 +278,21 @@ const AddModule: React.FC = () => {
                                   {video.questions.length > 1 && (
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        const nextModules = [...modulesField.state.value];
-                                        nextModules[mIndex].videos[vIndex].questions.splice(qIndex, 1);
-                                        modulesField.setValue(nextModules);
+                                      onClick={async () => {
+                                        const isConfirmed = await confirm({
+                                          title: "Delete Question",
+                                          message: "Are you sure you want to delete this quiz question?"
+                                        });
+                                        if (isConfirmed) {
+                                          const nextModules = [...modulesField.state.value];
+                                          nextModules[mIndex].videos[vIndex].questions.splice(qIndex, 1);
+                                          modulesField.setValue(nextModules);
+                                        }
                                       }}
-                                      className="text-rose-500 hover:text-rose-600 text-[11px] font-medium"
+                                      className="text-rose-500 hover:text-rose-600 p-1 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all flex items-center gap-1 cursor-pointer"
+                                      title="Delete Question"
                                     >
-                                      Delete Question
+                                      <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                   )}
                                 </div>
@@ -259,6 +300,7 @@ const AddModule: React.FC = () => {
                                 <div>
                                   <form.Field
                                     name={`modules[${mIndex}].videos[${vIndex}].questions[${qIndex}].question`}
+                                    validators={{ onChange: z.string().trim().min(1, "Question text cannot be empty") }}
                                     children={(subField) => (
                                       <>
                                         <input
@@ -266,10 +308,11 @@ const AddModule: React.FC = () => {
                                           placeholder="Type your question here"
                                           value={subField.state.value}
                                           onChange={(e) => subField.setValue(e.target.value)}
+                                          onBlur={subField.handleBlur}
                                           className={inputStyles}
                                         />
-                                        {subField.state.meta.errors.length > 0 && (
-                                          <p className="text-xs text-red-500 font-semibold mt-1">
+                                        {subField.state.meta.isTouched && subField.state.meta.errors.length > 0 && (
+                                          <p className="text-xs text-red-500 font-semibold mt-1 animate-fadeIn">
                                             {subField.state.meta.errors.map((err: any) => err?.message || String(err)).join(", ")}
                                           </p>
                                         )}
@@ -285,6 +328,7 @@ const AddModule: React.FC = () => {
                                         <span className="text-xs font-bold text-slate-400">{opt}:</span>
                                         <form.Field
                                           name={`modules[${mIndex}].videos[${vIndex}].questions[${qIndex}].option${opt}`}
+                                          validators={{ onChange: z.string().trim().min(1, `Option ${opt} configuration required`) }}
                                           children={(subField) => (
                                             <div className="w-full">
                                               <input
@@ -292,10 +336,11 @@ const AddModule: React.FC = () => {
                                                 placeholder={`Option ${opt}`}
                                                 value={subField.state.value}
                                                 onChange={(e) => subField.setValue(e.target.value)}
+                                                onBlur={subField.handleBlur}
                                                 className={inputStyles}
                                               />
-                                              {subField.state.meta.errors.length > 0 && (
-                                                <p className="text-[10px] text-red-500 font-semibold mt-0.5">
+                                              {subField.state.meta.isTouched && subField.state.meta.errors.length > 0 && (
+                                                <p className="text-[10px] text-red-500 font-semibold mt-0.5 animate-fadeIn">
                                                   {subField.state.meta.errors.map((err: any) => err?.message || String(err)).join(", ")}
                                                 </p>
                                               )}

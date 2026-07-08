@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { finishAuthCheck, login, logout } from "./redux/slices/authSlice";
+import { finishAuthCheck, login } from "./redux/slices/authSlice";
+import { setCompletedLectures } from "./redux/slices/progressSlice";
 import API, { setAuthTokenInMemory } from "./api/axiosAPI";
 
 import Navbar from "./components/navbar";
@@ -11,19 +12,19 @@ import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
 
 import Home from "./pages/home";
-import Profile from "./pages/profile";
 import Courses from "./pages/courses";
 import Login from "./pages/login";
-import DashBoard from "./pages/dashBoard";
 import Favorites from "./pages/favorites";
-import CourseDetails from "./pages/courseDetails";
 import AuthSync from "./components/authSync";
 import ProtectedRoute from "./components/protectedRoute";
+import AdminRoute from "./components/adminRoute";
 import AddCourse from "./pages/adminPages/addCourses";
 import AddModule from "./pages/adminPages/addModules";
 import CourseModulesPage from "./pages/courseModules";
 import VideoPlaybackPage from "./pages/videoPlayback";
 import QuizPage from "./pages/quiz";
+import CertificatePage from "./pages/CertificatePage";
+import AdminDrafts from "./pages/adminDrafts";
 
 function App() {
   const { darkMode } = useTheme();
@@ -46,6 +47,15 @@ function App() {
         
         if (user && user.name) {
           dispatch(login(user)); // 🚨 This keeps "Sheikh" locked into your state on refresh!
+          
+          try {
+            const progressRes = await API.get("/user/user-history");
+            if (progressRes.data.completedLectures) {
+              dispatch(setCompletedLectures(progressRes.data.completedLectures));
+            }
+          } catch (progressErr) {
+            console.error("Failed to load user progress:", progressErr);
+          }
         }
       } catch (err) {
         console.error("Session refresh failed on boot:", err);
@@ -72,6 +82,7 @@ function App() {
   return (
     <div className={darkMode ? "dark" : ""}>  
       <div className={`min-h-screen bg-[white] text-black dark:bg-gray-900 dark:text-white transition-colors duration-300`}>
+        <AuthSync />
         {location.pathname !== "/login" && <Navbar />}
         
         <Routes>
@@ -84,9 +95,11 @@ function App() {
           <Route path="/courses/:courseId" element={<ProtectedRoute><CourseModulesPage/></ProtectedRoute>}/>
           <Route path="/courses/:courseId/module/:moduleId/video/:videoId" element={<ProtectedRoute><VideoPlaybackPage /></ProtectedRoute>} /> 
           <Route path="/courses/:courseId/module/:moduleId/video/:videoId/quiz" element={<ProtectedRoute><QuizPage/></ProtectedRoute>} />
+          <Route path="/courses/:courseId/certificate" element={<ProtectedRoute><CertificatePage/></ProtectedRoute>} />
           
-          <Route path="/add-course" element={<ProtectedRoute><AddCourse/></ProtectedRoute>}/>
-          <Route path="/add-module" element={<ProtectedRoute><AddModule/></ProtectedRoute>}/>
+          <Route path="/add-course" element={<AdminRoute><AddCourse/></AdminRoute>}/>
+          <Route path="/add-module" element={<AdminRoute><AddModule/></AdminRoute>}/>
+          <Route path="/admin/drafts" element={<AdminRoute><AdminDrafts/></AdminRoute>}/>
           
       
           {/* <Route path="/profile" element={<ProtectedRoute><Profile/></ProtectedRoute>}/> */}

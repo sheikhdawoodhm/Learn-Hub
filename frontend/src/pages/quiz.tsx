@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { unlockNextLesson } from "../redux/slices/progressSlice";
-import { CheckCircle2, AlertCircle, ArrowLeft, ArrowRight, RefreshCw, Award } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, RefreshCw, Award } from "lucide-react";
 import API from "../api/axiosAPI";
 
 const QuizPage = () => {
@@ -15,6 +15,7 @@ const QuizPage = () => {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const course = useSelector((state: any) =>
     state.courses?.courses?.find((c: any) => String(c.id) === String(courseId))
@@ -43,9 +44,30 @@ const QuizPage = () => {
   const currentQuestion = questions[currentQuestionIdx];
 
   const handleNext = async () => {
-    const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+    setIsSubmitted(true);
+    let isCorrect = false;
+
+    try {
+      const res = await API.post("/quizzes/validate-answer", {
+        questionId: currentQuestion.id,
+        answer: selectedAnswer
+      });
+      isCorrect = res.data.isCorrect;
+    } catch (err) {
+      console.error("Failed to validate answer:", err);
+      setIsSubmitted(false);
+      return;
+    }
+
     const currentScore = isCorrect ? score + 1 : score;
-    if (isCorrect) setScore(currentScore);
+    if (isCorrect) {
+      setScore(currentScore);
+    } else {
+      setErrorMessage("Incorrect answer. Please try again!");
+      setSelectedAnswer("");
+      setIsSubmitted(false);
+      return; 
+    }
 
     setSelectedAnswer("");
     setIsSubmitted(false);
@@ -132,6 +154,12 @@ const QuizPage = () => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto space-y-6">
+        <button
+          onClick={() => navigate(`/courses/${courseId}/module/${moduleId}/video/${videoId}`)}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-all cursor-pointer mb-2"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Video
+        </button>
 
         <div className="flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider">
           <span>Question {currentQuestionIdx + 1} of {questions.length}</span>
@@ -162,7 +190,10 @@ const QuizPage = () => {
                   key={opt.key}
                   type="button"
                   disabled={isSubmitted}
-                  onClick={() => setSelectedAnswer(opt.letter)}
+                  onClick={() => {
+                    setSelectedAnswer(opt.letter);
+                    setErrorMessage("");
+                  }}
                   className={`w-full text-left px-5 py-4 rounded-xl border font-medium text-sm transition-all flex items-center justify-between gap-4 cursor-pointer ${isSelected
                       ? "bg-indigo-50 border-indigo-500 text-indigo-700 dark:bg-indigo-950/30 dark:border-indigo-500 dark:text-indigo-400 font-bold"
                       : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/60"
@@ -179,6 +210,13 @@ const QuizPage = () => {
               );
             })}
           </div>
+
+          {errorMessage && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-600 dark:bg-rose-950/30 dark:border-rose-900/50 dark:text-rose-400 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 animate-fadeIn">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {errorMessage}
+            </div>
+          )}
 
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
             <button

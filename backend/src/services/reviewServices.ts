@@ -20,8 +20,13 @@ export const addReviewComponents = async (userId: number, courseId: number, comm
     ratingData = await reviewQueries.upsertRating(userId, courseId, rating);
   }
 
-  return { 
-    comment: commentData, 
-    rating: ratingData 
+  const reviews = await reviewQueries.selectReviewsByCourseId(courseId);
+  return reviews.find((review) => Number(review.user_id) === Number(userId)) || {
+    ...commentData,
+    rating: ratingData?.rating,
   };
+};
+
+export const deleteComment = async (commentId: number) => {
+  return await reviewQueries.deleteComment(commentId);
 };

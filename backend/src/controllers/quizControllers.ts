@@ -52,3 +52,24 @@ export const handleDeleteQuiz = async (req: AuthenticatedRequest, res: Response)
     handleError(err, res)
   }
 };
+
+export const handleValidateAnswer = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { questionId, answer } = req.body;
+    const isCorrect = await quizService.validateAnswer(Number(questionId), answer);
+    return res.status(200).json({ success: true, isCorrect });
+  } catch (err: unknown) {
+    handleError(err, res);
+  }
+};
+
+export const handleUpdateQuestion = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { question, options, correctAnswer } = req.body;
+    await quizService.updateQuestion(Number(id), question, options, correctAnswer);
+    return res.status(200).json({ success: true, message: "Question successfully updated" });
+  } catch (err: unknown) {
+    handleError(err, res);
+  }
+};

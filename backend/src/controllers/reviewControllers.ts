@@ -30,3 +30,13 @@ export const handleCreateReview = async (req: AuthenticatedRequest, res: Respons
     handleError(err, res)
   }
 };
+
+export const handleDeleteComment = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    await reviewService.deleteComment(Number(id));
+    return res.status(200).json({ success: true, message: "Comment deleted successfully." });
+  } catch (err: unknown) {
+    handleError(err, res);
+  }
+};

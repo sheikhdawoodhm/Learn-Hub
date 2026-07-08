@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import { Request, Response } from "express";
+import pool from "../dbSetup/db";
 
 export const refreshSession = async (req: Request, res: Response) => {
 
@@ -15,12 +16,23 @@ export const refreshSession = async (req: Request, res: Response) => {
 
     const decoded = jwt.verify(refreshToken, REFRESH_SECRET) as { id: number };
 
+    const result = await pool.query("SELECT id, name, email, role FROM users WHERE id = $1", [decoded.id]);
+    const user = result.rows[0];
 
-    const newAccessToken = jwt.sign({ id: decoded.id }, ACCESS_SECRET, { expiresIn: "15m" });
+    if (!user) {
+      return res.status(401).json({ success: false, message: "User no longer exists" });
+    }
+
+    const newAccessToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role }, 
+      ACCESS_SECRET, 
+      { expiresIn: "15m" }
+    );
+    
     return res.status(200).json({
       success: true,
       accessToken: newAccessToken,
-      user: { id: decoded.id } // 💡 Add this so your frontend Redux layout state matches completely!
+      user: { id: user.id, name: user.name, email: user.email, role: user.role }
     });
   } catch (error) {
     console.error("❌ REFRESH FAILED! Diagnostic details:", {

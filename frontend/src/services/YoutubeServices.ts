@@ -56,7 +56,7 @@ export const searchCourses = async (query: string) => {
     sessionStorage.setItem(cacheKey, JSON.stringify(mapped));
 
     return mapped;
-  } catch (error) {
+  } catch {
     return [];
   }
 };
@@ -78,7 +78,7 @@ export const getVideoDetails = async (videoIds: string[]) => {
     }
 
     return data.items;
-  } catch (error) {
+  } catch {
     return [];
   }
 };

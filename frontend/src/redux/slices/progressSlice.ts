@@ -5,27 +5,27 @@ interface ProgressState {
 }
 
 const initialState: ProgressState = {
-
-  completedLectures: JSON.parse(localStorage.getItem("lms_completed_lectures") || "[]"),
+  completedLectures: [],
 };
 
 const progressSlice = createSlice({
   name: "progress",
   initialState,
   reducers: {
+    setCompletedLectures: (state, action: PayloadAction<string[]>) => {
+      state.completedLectures = action.payload;
+    },
     unlockNextLesson: (state, action: PayloadAction<string>) => {
       const lectureKey = action.payload;
       if (!state.completedLectures.includes(lectureKey)) {
         state.completedLectures.push(lectureKey);
-        localStorage.setItem("lms_completed_lectures", JSON.stringify(state.completedLectures));
       }
     },
     resetProgress: (state) => {
       state.completedLectures = [];
-      localStorage.removeItem("lms_completed_lectures");
     },
   },
 });
 
-export const { unlockNextLesson, resetProgress } = progressSlice.actions;
+export const { unlockNextLesson, resetProgress, setCompletedLectures } = progressSlice.actions;
 export default progressSlice.reducer;

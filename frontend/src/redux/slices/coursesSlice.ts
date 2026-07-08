@@ -94,6 +94,16 @@ const coursesSlice = createSlice({
       state.courses.push(action.payload);
       saveToLocalStorage(state.courses);
     },
+    updateCourse(state, action: PayloadAction<Partial<Course> & { id: string | number }>) {
+      const index = state.courses.findIndex((course) => String(course.id) === String(action.payload.id));
+      if (index !== -1) {
+        state.courses[index] = {
+          ...state.courses[index],
+          ...action.payload,
+        };
+        saveToLocalStorage(state.courses);
+      }
+    },
     updateCourseModules(state, action: PayloadAction<{ courseId: string; modules: Module[] }>) {
       const { courseId, modules } = action.payload;
       const course = state.courses.find((c) => String(c.id) === String(courseId));
@@ -158,6 +168,7 @@ const coursesSlice = createSlice({
 export const {
   setCourses,
   addCourse,
+  updateCourse,
   updateCourseModules,
   updateSyllabusForCourse,
   addModule,

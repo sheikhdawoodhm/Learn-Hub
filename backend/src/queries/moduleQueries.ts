@@ -66,8 +66,7 @@ export const fetchSyllabusByCourseId = async (courseId: string | number) => {
                             'optionA', q_flat.optionA,
                             'optionB', q_flat.optionB,
                             'optionC', q_flat.optionC,
-                            'optionD', q_flat.optionD,
-                            'correctAnswer', q_flat.correctAnswer
+                            'optionD', q_flat.optionD
                           )
                         )
                         FROM (

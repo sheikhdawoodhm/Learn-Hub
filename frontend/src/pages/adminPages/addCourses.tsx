@@ -1,15 +1,16 @@
 import React, { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { AxiosError } from "axios";
-import { zodValidator } from "@tanstack/zod-form-adapter";
 
 import { BookOpen, Award, FileText, Image as ImageIcon, ArrowRight, Sparkles } from "lucide-react";
-import { addCourse } from "../../redux/slices/coursesSlice";
+import { addCourse, updateCourse } from "../../redux/slices/coursesSlice";
 import API from "../../api/axiosAPI";
+import { useNotification } from "../../context/NotificationContext";
+import { zodValidator } from "@tanstack/zod-form-adapter";
 
-import { createCourseSchema, type CourseValues } from "../../validationRules/createCourseRules";
+import { createCourseSchema } from "../../validationRules/createCourseRules";
 
 type BackendValidationError = {
   success: boolean;
@@ -18,17 +19,22 @@ type BackendValidationError = {
 
 const AddCourse: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
+  const { showNotification } = useNotification();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const editCourse = location.state?.course;
+  const isEditMode = Boolean(editCourse?.id);
 
   const form = useForm({
+    // @ts-ignore: version mismatch
+    validatorAdapter: zodValidator(),
     defaultValues: {
-      title: "",
-      category: "",
-      description: "",
-      thumbnail: "",
+      title: editCourse?.title || "",
+      category: editCourse?.category || editCourse?.difficulty || "",
+      description: editCourse?.description || "",
+      thumbnail: editCourse?.thumbnail || editCourse?.thumbnail_url || "",
     },
-
 
     validators: {
       onChange: createCourseSchema,
@@ -47,19 +53,34 @@ const AddCourse: React.FC = () => {
       }
 
       try {
+        if (isEditMode) {
+          const response = await API.put<{ course?: { id?: string | number } }>(`/courses/${editCourse.id}`, value);
+          dispatch(updateCourse({
+            id: editCourse.id,
+            ...value,
+            thumbnail: value.thumbnail,
+            ...(response.data.course || {}),
+          }));
+          showNotification("Course updated successfully!", "success");
+          navigate(`/courses/${editCourse.id}`);
+          return;
+        }
+
         const response = await API.post<{ id?: string; courseId?: string; course?: { id?: string } }>("/courses", value);
         const realCourseId = response.data?.id ?? response.data?.courseId ?? response.data?.course?.id;
-        const courseIdToUse = realCourseId ?? `temp-${Date.now()}`;
 
-        dispatch(addCourse({ id: courseIdToUse, ...value, modules: [] }));
-        navigate("/add-module", { state: { courseId: courseIdToUse } });
+        if (!realCourseId) {
+          setSubmitError("Course was created, but the server did not return a course id.");
+          showNotification("Course creation failed: no course ID returned.", "error");
+          return;
+        }
+
+        dispatch(addCourse({ id: realCourseId, ...value, modules: [] }));
+        showNotification("Course created successfully!", "success");
+        navigate("/add-module", { state: { courseId: realCourseId } });
       } catch (err) {
         const error = err as AxiosError<BackendValidationError>;
         console.error("Axios course initialization failure:", error);
-
-        const fallbackCourseId = `temp-${Date.now()}`;
-        dispatch(addCourse({ id: fallbackCourseId, ...value, modules: [] }));
-        navigate("/add-module", { state: { courseId: fallbackCourseId } });
 
         if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
           const stringifyError = (msg: any): string => {
@@ -72,8 +93,11 @@ const AddCourse: React.FC = () => {
             .map((e) => `• ${stringifyError(e.field)}: ${stringifyError(e.message)}`)
             .join("\n");
           setSubmitError(validationMessages);
+          showNotification("Validation failed.", "error");
         } else {
-          setSubmitError(error.response?.data?.toString() || "Could not initialize course settings.");
+          const errMsg = error.response?.data?.toString() || "Could not save course settings.";
+          setSubmitError(errMsg);
+          showNotification(errMsg, "error");
         }
       }
     },
@@ -92,7 +116,7 @@ const AddCourse: React.FC = () => {
               <BookOpen className="w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Create New Course</h1>
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{isEditMode ? "Update Course" : "Create New Course"}</h1>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Define your course settings and general information.</p>
             </div>
           </div>
@@ -121,6 +145,7 @@ const AddCourse: React.FC = () => {
             </label>
             <form.Field
               name="title"
+              validators={{ onChange: createCourseSchema.shape.title }}
               children={(field) => (
                 <>
                   <input
@@ -129,10 +154,11 @@ const AddCourse: React.FC = () => {
                     placeholder="e.g. Master React 19 from Scratch"
                     value={field.state.value}
                     onChange={(e) => field.setValue(e.target.value)}
+                    onBlur={field.handleBlur}
                     className={inputStyles}
                   />
-                  {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-red-500 font-semibold mt-1">
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-red-500 font-semibold mt-1 animate-fadeIn">
                       {field.state.meta.errors.map((err: any) => err?.message || String(err)).join(", ")}
                     </p>
                   )}
@@ -147,6 +173,7 @@ const AddCourse: React.FC = () => {
             </label>
             <form.Field
               name="category"
+              validators={{ onChange: createCourseSchema.shape.category }}
               children={(field) => (
                 <>
                   <div className="grid grid-cols-3 gap-3">
@@ -178,8 +205,8 @@ const AddCourse: React.FC = () => {
                       );
                     })}
                   </div>
-                  {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-red-500 font-semibold mt-1">
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-red-500 font-semibold mt-2 animate-fadeIn">
                       {field.state.meta.errors.map((err: any) => err?.message || String(err)).join(", ")}
                     </p>
                   )}
@@ -194,18 +221,20 @@ const AddCourse: React.FC = () => {
             </label>
             <form.Field
               name="description"
+              validators={{ onChange: createCourseSchema.shape.description }}
               children={(field) => (
                 <>
                   <textarea
                     id="description"
                     rows={4}
-                    placeholder="Describe what students will learn in this course (min 10 characters)..."
+                    placeholder="Provide a comprehensive description of what students will learn..."
                     value={field.state.value}
                     onChange={(e) => field.setValue(e.target.value)}
+                    onBlur={field.handleBlur}
                     className={`${inputStyles} resize-none`}
                   />
-                  {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-red-500 font-semibold mt-1">
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-red-500 font-semibold mt-1 animate-fadeIn">
                       {field.state.meta.errors.map((err: any) => err?.message || String(err)).join(", ")}
                     </p>
                   )}
@@ -220,18 +249,20 @@ const AddCourse: React.FC = () => {
             </label>
             <form.Field
               name="thumbnail"
+              validators={{ onChange: createCourseSchema.shape.thumbnail }}
               children={(field) => (
                 <>
                   <input
                     type="url"
                     id="thumbnail"
-                    placeholder="e.g. https://example.com/images/react-thumbnail.jpg"
+                    placeholder="https://..."
                     value={field.state.value}
                     onChange={(e) => field.setValue(e.target.value)}
+                    onBlur={field.handleBlur}
                     className={inputStyles}
                   />
-                  {field.state.meta.errors.length > 0 && (
-                    <p className="text-xs text-red-500 font-semibold mt-1">
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
+                    <p className="text-xs text-red-500 font-semibold mt-1 animate-fadeIn">
                       {field.state.meta.errors.map((err: any) => err?.message || String(err)).join(", ")}
                     </p>
                   )}
@@ -245,7 +276,7 @@ const AddCourse: React.FC = () => {
               type="submit"
               className="font-bold py-2.5 px-6 rounded-xl shadow-md transition-all duration-150 flex items-center gap-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-100 dark:shadow-none hover:shadow-lg cursor-pointer"
             >
-              Save & Continue <ArrowRight className="w-4 h-4" />
+              {isEditMode ? "Save Changes" : "Save & Continue"} <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </form>

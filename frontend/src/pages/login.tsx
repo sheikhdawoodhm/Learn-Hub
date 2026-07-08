@@ -1,4 +1,6 @@
 import { useState } from "react";
+// import { useAuth0 } from "@auth0/auth0-react";
+import { useNotification } from "../context/NotificationContext";
 import API, { setAuthTokenInMemory } from "../api/axiosAPI";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -17,14 +19,11 @@ export default function AuthPage() {
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
-  const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
+  // const { isLoading: isGoogleLoading } = useAuth0();
+  const { showNotification } = useNotification();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg("");
-    setSuccessMsg("");
     
     try {
       if (isLogin) {
@@ -34,25 +33,24 @@ export default function AuthPage() {
           setAuthTokenInMemory(response.data.accessToken);
           // Redux receives user payload (e.g., { id, name, email, role })
           dispatch(login(response.data.user));
+          showNotification("Successfully logged in!", "success");
           navigate("/courses");
-          console.log(response.data.user);
         }
       } else {
-        // 2. Transmitting selected role string over to registration endpoint
         const response = await API.post("/auth/signup", { name, email, password, role });
         
         if (response.data.success) {
-          setSuccessMsg("Account created successfully! Please sign in.");
+          showNotification("Account created successfully! Please sign in.", "success");
           setIsLogin(true);
           setName("");
           setPassword(""); 
-          setRole("student"); // Reset selector state back to base default
+          setRole("student"); 
         }
       }
     } catch (err: any) {
       console.error("Authentication execution failure:", err);
       const message = err.response?.data?.message || "An unexpected error occurred.";
-      setErrorMsg(message);
+      showNotification(message, "error");
     }
   };
 
@@ -60,7 +58,6 @@ export default function AuthPage() {
     <div className="min-h-screen flex items-center justify-center overflow-hidden p-4 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       <main className="w-full max-w-6xl md:h-[85vh] max-h-[800px] flex rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-800 animate-fadeIn">
 
-        {/* --- LEFT SIDEBRAND PANEL (SHARED) --- */}
         <section className="hidden md:flex w-1/2 flex-col justify-between p-6 lg:p-12 bg-white dark:bg-gray-800 relative">
           <div>
             <div className="flex items-center gap-3 mb-12">
@@ -125,18 +122,6 @@ export default function AuthPage() {
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               {isLogin ? "Sign in to continue your learning journey." : "Join us to begin tracking your courses."}
             </p>
-
-            {errorMsg && (
-              <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 rounded-xl border border-red-200 dark:border-red-800/30 animate-fadeIn">
-                {errorMsg}
-              </div>
-            )}
-
-            {successMsg && (
-              <div className="p-3 mb-4 text-sm text-green-600 bg-green-50 dark:bg-green-900/20 dark:text-green-400 rounded-xl border border-green-200 dark:border-green-800/30 animate-fadeIn">
-                {successMsg}
-              </div>
-            )}
 
             <form onSubmit={handleSubmit} className="space-y-4 md:space-y-5">
 
@@ -292,8 +277,6 @@ export default function AuthPage() {
                   setEmail("");
                   setPassword("");
                   setRole("student"); // Reset state
-                  setErrorMsg("");
-                  setSuccessMsg("");
                 }}
                 className="text-blue-600 hover:underline font-medium"
               >

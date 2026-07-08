@@ -40,3 +40,58 @@ export const insertOption = async (questionId: number, optionText: string, isCor
 export const deleteQuizById = async (id: number) => {
   await pool.query("DELETE FROM quizzes WHERE id = $1", [id]);
 };
+
+export const updateQuestionText = async (questionId: number, text: string) => {
+  await pool.query("UPDATE quiz_questions SET question_text = $2 WHERE id = $1", [questionId, text]);
+};
+
+export const updateOptionText = async (questionId: number, letter: string, text: string) => {
+  const letterToIdx: { [key: string]: number } = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
+  const targetIdx = letterToIdx[letter];
+  // Since we don't know the exact option ID, we use the idx approach
+  await pool.query(`
+    WITH numbered AS (
+      SELECT id, row_number() OVER (ORDER BY id ASC) as idx
+      FROM quiz_options
+      WHERE question_id = $1
+    )
+    UPDATE quiz_options
+    SET option_text = $3
+    WHERE id = (SELECT id FROM numbered WHERE idx = $2)
+  `, [questionId, targetIdx, text]);
+};
+
+export const updateOptionCorrectness = async (questionId: number, correctAnswerLetter: string) => {
+  const letterToIdx: { [key: string]: number } = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
+  const targetIdx = letterToIdx[correctAnswerLetter];
+  
+  // Set all to false first
+  await pool.query("UPDATE quiz_options SET is_correct = false WHERE question_id = $1", [questionId]);
+  
+  // Set the correct one to true
+  await pool.query(`
+    WITH numbered AS (
+      SELECT id, row_number() OVER (ORDER BY id ASC) as idx
+      FROM quiz_options
+      WHERE question_id = $1
+    )
+    UPDATE quiz_options
+    SET is_correct = true
+    WHERE id = (SELECT id FROM numbered WHERE idx = $2)
+  `, [questionId, targetIdx]);
+};
+
+export const validateAnswerQuery = async (questionId: number, answerLetter: string) => {
+  const query = `
+    SELECT is_correct, row_number() OVER (ORDER BY id ASC) as idx
+    FROM quiz_options
+    WHERE question_id = $1
+  `;
+  const res = await pool.query(query, [questionId]);
+  
+  const letterToIdx: { [key: string]: number } = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
+  const targetIdx = letterToIdx[answerLetter];
+  
+  const selectedOption = res.rows.find(row => parseInt(row.idx) === targetIdx);
+  return selectedOption ? selectedOption.is_correct : false;
+};

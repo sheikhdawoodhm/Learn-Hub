@@ -13,14 +13,30 @@ import userProgressRoutes from "./routes/progressRoutes";
 import reviewRoutes from "./routes/reviewRoutes";
 import progressRoutes from "./routes/progressRoutes";
 import favoriteRoutes from "./routes/favoriteRoutes";
+import certificateRoutes from "./routes/certificateRoutes";
 
 
 dotenv.config();
 
 const app = express();
 
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5174",
+  "http://127.0.0.1:5174",
+  process.env.FRONTEND_URL,
+].filter(Boolean));
+
 app.use(cors({
-  origin: "http://localhost:5173", // URL of your frontend application
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(new Error(`Origin ${origin} is not allowed by CORS`));
+  },
   methods: ["GET", "POST", "PUT", "DELETE"],
   credentials: true // Permits cookies/authorization headers if needed later
 }));
@@ -36,6 +52,7 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/quizzes", quizRoutes);
 app.use("/api/user",userProgressRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/certificates", certificateRoutes);
 
 
 app.get("/", (req, res) => {
@@ -64,6 +81,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
 
 

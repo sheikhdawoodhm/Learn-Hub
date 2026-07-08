@@ -114,6 +114,7 @@ function Courses() {
     }
     return true;
   });
+  const canManageCourses = user?.role === "admin" || user?.role === "instructor";
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
@@ -124,12 +125,14 @@ function Courses() {
         </div>
 
         <div className="flex items-center gap-3 self-end md:self-auto">
-          <button
-            onClick={() => navigate("/add-course")}
-            className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm py-2.5 px-5 rounded-xl transition-all cursor-pointer shadow-sm shadow-indigo-100"
-          >
-            <Plus className="w-4 h-4" /> Add Course
-          </button>
+          {canManageCourses && (
+            <button
+              onClick={() => navigate("/add-course")}
+              className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm py-2.5 px-5 rounded-xl transition-all cursor-pointer shadow-sm shadow-indigo-100"
+            >
+              <Plus className="w-4 h-4" /> Add Course
+            </button>
+          )}
 
           <CourseStatusFilter
             selectedStatus={selectedStatus}

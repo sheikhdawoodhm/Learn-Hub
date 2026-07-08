@@ -61,3 +61,42 @@ res.cookie("refreshToken", sessionData.refreshToken, {
     return res.status(500).json({ success: false, message: "Internal Server Error during login transaction." });
   }
 };
+
+export const oauthLogin = async (req: Request, res: Response) => {
+  try {
+    const { name, email, role } = req.body;
+    const sessionData = await authService.loginOAuthUser(name, email, role);
+
+    res.cookie("refreshToken", sessionData.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Google login successful!",
+      accessToken: sessionData.accessToken,
+      user: sessionData.user,
+    });
+  } catch (error) {
+    console.error("OAuth login failed:", error);
+    return res.status(500).json({ success: false, message: "Google login failed." });
+  }
+};
+
+export const logout = async (req: Request, res: Response) => {
+  try {
+    const authReq = req as any;
+    if (authReq.user && authReq.user.sessionId) {
+      const { deleteSession } = await import("../queries/authQueries");
+      await deleteSession(authReq.user.sessionId);
+    }
+    res.clearCookie("refreshToken");
+    return res.status(200).json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    console.error("Logout error:", error);
+    return res.status(500).json({ success: false, message: "Server error during logout" });
+  }
+};

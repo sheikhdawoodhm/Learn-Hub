@@ -14,6 +14,32 @@ export const insertCourseDraft = async (course: CreateCourseInput) => {
   return queryResult.rows[0];
 };
 
+export const getCourseById = async (courseId: string) => {
+  const result = await pool.query("SELECT * FROM courses WHERE id = $1", [courseId]);
+  return result.rows[0];
+};
+
+export const updateCourseRecord = async (courseId: string, course: CreateCourseInput) => {
+  const statement = `
+    UPDATE courses
+    SET title = $1,
+        category = $2,
+        description = $3,
+        thumbnail_url = $4,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $5
+    RETURNING id, title, category, description, thumbnail_url, status;
+  `;
+  const parameters = [course.title, course.category, course.description, course.thumbnail, courseId];
+  const queryResult = await pool.query(statement, parameters);
+  return queryResult.rows[0];
+};
+
+export const deleteCourseRecord = async (courseId: string) => {
+  const result = await pool.query("DELETE FROM courses WHERE id = $1 RETURNING id", [courseId]);
+  return result.rows[0];
+};
+
 export const insertModuleRecord = async (client: PoolClient, courseId: string, moduleName: string, moduleOrder: number): Promise<string> => {
   const statement = `INSERT INTO modules (course_id, title, module_order) VALUES ($1, $2, $3) RETURNING id;`;
   const result = await client.query(statement, [courseId, moduleName, moduleOrder]);
@@ -172,4 +198,14 @@ export const getAllCourses = async ({ page, limit, search, category, status }: G
       totalItems,
     }
   };
+};
+
+export const getDraftCourses = async () => {
+  const query = `
+    SELECT * FROM courses
+    WHERE status = 'DRAFT'
+    ORDER BY created_at DESC
+  `;
+  const result = await pool.query(query);
+  return result.rows;
 };

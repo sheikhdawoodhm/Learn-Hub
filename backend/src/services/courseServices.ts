@@ -9,6 +9,22 @@ export const createDraftCourse = async (courseData: CreateCourseInput) => {
   return await courseQueries.insertCourseDraft(courseData);
 };
 
+export const updateCourse = async (courseId: string, courseData: CreateCourseInput) => {
+  const updatedCourse = await courseQueries.updateCourseRecord(courseId, courseData);
+  if (!updatedCourse) {
+    throw new Error("COURSE_NOT_FOUND");
+  }
+  return updatedCourse;
+};
+
+export const deleteCourse = async (courseId: string) => {
+  const deletedCourse = await courseQueries.deleteCourseRecord(courseId);
+  if (!deletedCourse) {
+    throw new Error("COURSE_NOT_FOUND");
+  }
+  return deletedCourse;
+};
+
 export const saveNestedModulesTree = async (saveModulesInput: SaveModulesInput,courseId: string) => {
   const {  modules } = saveModulesInput;
   const client: PoolClient = await pool.connect();
@@ -50,3 +66,10 @@ export const fetchPublishedCourses = async (options:  GetCoursesQueryInput,userI
   return await courseQueries.getAllCourses({ page, limit, search, category, status},userId);
 };
 
+export const fetchDraftCourses = async () => {
+  return await courseQueries.getDraftCourses();
+};
+
+export const fetchCourseById = async (courseId: string) => {
+  return await courseQueries.getCourseById(courseId);
+};

@@ -3,13 +3,18 @@ import { useTheme } from "../context/themeContext";
 import { useState, useRef, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { logout as reduxLogout } from "../redux/slices/authSlice";
+import { resetProgress } from "../redux/slices/progressSlice";
 import { clearAuthTokenInMemory } from "../api/axiosAPI";
+import { useNotification } from "../context/NotificationContext";
 
 function Navbar() {
   const [open, setOpen] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [imageError, setImageError] = useState(false);
   const profileRef = useRef<HTMLDivElement | null>(null);
+  const notifRef = useRef<HTMLDivElement | null>(null);
+  const { notifications, clearNotifications } = useNotification();
 
   const { darkMode, toggleTheme } = useTheme();
   
@@ -22,9 +27,14 @@ function Navbar() {
     { name: "Favorites", path: "/favorites" },
   ];
 
+  if (isLoggedIn && (user?.role === "admin" || user?.role === "instructor")) {
+    navLinks.push({ name: "Drafts", path: "/admin/drafts" });
+  }
+
   const handleCustomLogout = () => {
     clearAuthTokenInMemory();
     dispatch(reduxLogout());
+    dispatch(resetProgress());
     setShowProfileMenu(false);
     setOpen(false);
   };
@@ -36,6 +46,12 @@ function Navbar() {
         !profileRef.current.contains(event.target as Node)
       ) {
         setShowProfileMenu(false);
+      }
+      if (
+        notifRef.current &&
+        !notifRef.current.contains(event.target as Node)
+      ) {
+        setShowNotifications(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -87,9 +103,62 @@ function Navbar() {
             </span>
           </button>
 
-          <button className="p-2 hover:bg-blue-100 cursor-pointer dark:hover:bg-gray-800 rounded-full transition-all duration-200">
-            <span className="material-symbols-outlined text-blue-600">notifications</span>
-          </button>
+          <div ref={notifRef} className="relative hidden md:block">
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="p-2 hover:bg-blue-100 cursor-pointer dark:hover:bg-gray-800 rounded-full transition-all duration-200 relative"
+            >
+              <span className="material-symbols-outlined text-blue-600">notifications</span>
+              {notifications.length > 0 && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 top-12 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 animate-fadeIn">
+                <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">Recent Notifications</h3>
+                  {notifications.length > 0 && (
+                    <button 
+                      onClick={clearNotifications}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
+                    >
+                      Clear all
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {notifications.map((notif) => (
+                        <li key={notif.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                          <div className="flex gap-3 items-start">
+                            <span className={`material-symbols-outlined mt-0.5 ${
+                              notif.type === 'success' ? 'text-emerald-500' : 
+                              notif.type === 'error' ? 'text-red-500' : 'text-blue-500'
+                            }`}>
+                              {notif.type === 'success' ? 'check_circle' : notif.type === 'error' ? 'error' : 'info'}
+                            </span>
+                            <div className="flex-1">
+                              <p className="text-sm text-gray-800 dark:text-gray-200">{notif.message}</p>
+                              <span className="text-xs text-gray-500 mt-1 block">
+                                {notif.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                      <span className="material-symbols-outlined text-4xl mb-2 opacity-50">notifications_paused</span>
+                      <p className="text-sm">You have no new notifications.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {!isLoggedIn ? (
             <Link

@@ -9,6 +9,18 @@ export const createCourseSchema = z.object({
   }),
 });
 
+export const updateCourseSchema = z.object({
+  params: z.object({
+    courseId: z.string().min(1, "Course ID path parameter is required"),
+  }),
+  body: z.object({
+    title: z.string().trim().min(3, "Title must be at least 3 characters"),
+    category: z.string().trim().min(2, "Category must be at least 2 characters"),
+    description: z.string().trim().min(10, "Description must be at least 10 characters"),
+    thumbnail: z.string().trim().pipe(z.url("Invalid thumbnail URL format")),
+  }),
+});
+
 export const saveModulesSchema = z.object({
   params: z.object({
 courseId: z.string().min(1, "Course ID path parameter is required"),  }),
@@ -52,4 +64,5 @@ export const getCoursesQuerySchema = z.object({
 
 export type GetCoursesQueryInput = z.infer<typeof getCoursesQuerySchema>["query"];
 export type CreateCourseInput = z.infer<typeof createCourseSchema>["body"];
+export type UpdateCourseInput = z.infer<typeof updateCourseSchema>["body"];
 export type SaveModulesInput = z.infer<typeof saveModulesSchema>["body"];
